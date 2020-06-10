@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	awssession "github.com/aws/aws-sdk-go/aws/session"
+	"github.com/google/uuid"
 	"github.com/guregu/dynamo"
 )
 
@@ -15,11 +16,11 @@ func dynamoTable(name string) dynamo.Table {
 	return dynamo.New(awssession.New(), awsConfig).Table("filecoin-verified-addresses")
 }
 
-func fetchUserWithProviderEmail(providerName, email string) {
+func fetchUserWithProviderEmail(providerName, email string) (User, error) {
 	table := dynamoTable("filecoin-verified-addresses")
 
 	var users []User
-	err = table.Scan().
+	err := table.Scan().
 		Filter("Accounts."+providerName+".Email = ?", email).
 		Limit(1).
 		All(&users)
