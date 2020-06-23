@@ -1,13 +1,18 @@
 package main
 
 import (
+	"math/big"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
+
+var jwtSecret = []byte("ALSKjdflakjs;dklfj;askdj;flaskdjf")
 
 func main() {
 	router := gin.Default()
@@ -20,13 +25,13 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// # API wrapper for Lotus commands:
-	//
-	// how much data do i have
-	// give me an allowance
-	//     - check age of GH account
-	//     - check current allowance
 	router.POST("/oauth/:provider", serveOauth)
+	router.POST("/make-verifier", serveMakeVerifier)
+	router.POST("/verify", serveVerifyAccount)
+	router.GET("/verifiers", serveListVerifiers)
+	router.GET("/verified-clients", serveListVerifiedClients)
+	router.GET("/account-remaining-bytes", serveCheckAccountRemainingBytes)
+	router.GET("/verifier-remaining-bytes", serveCheckVerifierRemainingBytes)
 
 	router.Run(":" + env.Port)
 }
@@ -84,12 +89,6 @@ func serveOauth(c *gin.Context) {
 		return
 	}
 
-	// Ensure that the user meets our criteria for being granted an allowance
-	if time.Now().Sub(accountData.CreatedAt).Hours() < env.MinAccountAge.Hours() {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
-		return
-	}
-
 	// Update user record in Dynamo
 	user, err := fetchUserWithProviderEmail(providerName, accountData.Email)
 	if err != nil {
@@ -106,5 +105,174 @@ func serveOauth(c *gin.Context) {
 		return
 	}
 
-	// @@TODO: Verify Filecoin address
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"filecoinAddress": body.FilecoinAddress,
+		"nbf":             time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
+	})
+
+	// Sign and get the complete encoded token as a string using the secret
+	jwtTokenString, err := token.SignedString(jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "generating JWT: " + err.Error()})
+		return
+	}
+
+	type Response struct {
+		JWT string `json:"jwt"`
+	}
+
+	c.JSON(http.StatusOK, Response{jwtTokenString})
+}
+
+func serveMakeVerifier(c *gin.Context) {
+	type Request struct {
+		TargetAddr string `json:"targetAddr" binding:"required"`
+		Allowance  string `json:"allowance" binding:"required"`
+	}
+
+	var body Request
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := lotusMakeAccountAVerifier(body.TargetAddr, body.Allowance)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+}
+
+func serveVerifyAccount(c *gin.Context) {
+	type Request struct {
+		FromAddr  string `json:"fromAddr" binding:"required"`
+		Allowance string `json:"allowance" binding:"required"`
+	}
+
+	var body Request
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch the targetAddr from the provided JWT
+	var targetAddr string
+	{
+		authHeader := c.GetHeader("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "jwt token missing"})
+			return
+		}
+
+		jwtToken := strings.TrimSpace(authHeader[len("Bearer "):])
+
+		token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+			return jwtSecret, nil
+		})
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok || !token.Valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
+			return
+		}
+
+		targetAddr = claims["filecoinAddress"]
+	}
+
+	// Ensure that the user meets our criteria for being granted an allowance
+	if time.Now().Sub(user.CreatedAt).Hours() < env.MinAccountAge.Hours() {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
+		return
+	}
+
+	remaining, err := lotusCheckAccountRemainingBytes(targetAddr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	owed := env.MaxAllowanceBytes.Sub(remaining)
+	if owed.Cmp(big.NewInt(0)) <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "you have plenty already, Greedy McRichbags"})
+		return
+	}
+
+	user, err := getUserByFilecoinAddress(targetAddr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = lotusVerifyAccount(body.FromAddr, targetAddr, owed.String())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+}
+
+func serveListVerifiers(c *gin.Context) {
+	verifiers, err := lotusListVerifiers()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, verifiers)
+}
+
+func serveListVerifiedClients(c *gin.Context) {
+	verifiedClients, err := lotusListVerifiedClients()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, verifiedClients)
+}
+
+func serveCheckAccountRemainingBytes(c *gin.Context) {
+	type Request struct {
+		TargetAddr string `json:"targetAddr" binding:"required"`
+	}
+
+	var body Request
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	dcap, err := lotusCheckAccountRemainingBytes(body.TargetAddr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dcap)
+}
+
+func serveCheckVerifierRemainingBytes(c *gin.Context) {
+	type Request struct {
+		TargetAddr string `json:"targetAddr" binding:"required"`
+	}
+
+	var body Request
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	dcap, err := lotusCheckVerifierRemainingBytes(body.TargetAddr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dcap)
 }

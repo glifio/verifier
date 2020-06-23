@@ -42,3 +42,10 @@ func saveUser(user User) error {
 	table := dynamoTable("filecoin-verified-addresses")
 	return table.Put(user).Run()
 }
+
+func getUserByFilecoinAddress(filecoinAddr string) (User, error) {
+	table := dynamoTable("filecoin-verified-addresses")
+	var user User
+	err := table.Get("FilecoinAddress", filecoinAddr).One(&user)
+	return user, err
+}
