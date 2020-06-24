@@ -1,12 +1,27 @@
 package main
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	awssession "github.com/aws/aws-sdk-go/aws/session"
 	"github.com/google/uuid"
 	"github.com/guregu/dynamo"
 )
+
+type User struct {
+	ID              string
+	FilecoinAddress string
+	Accounts        map[string]AccountData
+}
+
+type AccountData struct {
+	Username  string    `json:"login"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+}
 
 func dynamoTable(name string) dynamo.Table {
 	awsConfig := aws.NewConfig().

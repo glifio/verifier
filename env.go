@@ -6,6 +6,7 @@ import (
 	"time"
 
 	envpkg "github.com/caarlos0/env"
+	big "github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 type Env struct {
@@ -13,9 +14,12 @@ type Env struct {
 	AWSRegion          string        `env:"AWS_REGION" envDefault:"us-east-1"`
 	AWSAccessKey       string        `env:"AWS_ACCESS_KEY,required"`
 	AWSSecretKey       string        `env:"AWS_SECRET_KEY,required"`
+	LotusAPIMultiaddr  string        `env:"LOTUS_API_MULTIADDR" envDefault:"/ip4/127.0.0.1/tcp/1234"`
+	LotusAPIToken      string        `env:"LOTUS_API_TOKEN"`
 	GithubClientID     string        `env:"GITHUB_CLIENT_ID,required"`
 	GithubClientSecret string        `env:"GITHUB_CLIENT_SECRET,required"`
 	MinAccountAge      time.Duration `env:"MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
+	MaxAllowanceBytes  big.Int       `env:"MAX_ALLOWANCE_BYTES"`
 }
 
 var env Env
@@ -28,6 +32,13 @@ func init() {
 				return nil, err
 			}
 			return time.Duration(minAccountAgeDays) * 24 * time.Hour, nil
+		},
+		reflect.TypeOf(big.Int{}): func(v string) (interface{}, error) {
+			n, err := big.FromString(v)
+			if err != nil {
+				return nil, err
+			}
+			return n, nil
 		},
 	})
 	if err != nil {

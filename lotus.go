@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/lotus/chain/types"
 	lcli "github.com/filecoin-project/lotus/cli"
 	"github.com/filecoin-project/lotus/node/repo"
+	big "github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
 	"github.com/ipfs/go-hamt-ipld"
@@ -237,15 +238,15 @@ func lotusListVerifiedClients() ([]AddrAndDataCap, error) {
 	return resp, err
 }
 
-func lotusCheckAccountRemainingBytes(targetAddr string) (verifreg.DataCap, error) {
+func lotusCheckAccountRemainingBytes(targetAddr string) (big.Int, error) {
 	caddr, err := address.NewFromString(targetAddr)
 	if err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 
 	api, closer, err := GetFullNodeAPI()
 	if err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 	defer closer()
 
@@ -253,7 +254,7 @@ func lotusCheckAccountRemainingBytes(targetAddr string) (verifreg.DataCap, error
 
 	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, types.EmptyTSK)
 	if err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 
 	apibs := apibstore.NewAPIBlockstore(api)
@@ -261,30 +262,30 @@ func lotusCheckAccountRemainingBytes(targetAddr string) (verifreg.DataCap, error
 
 	var st verifreg.State
 	if err := cst.Get(ctx, act.Head, &st); err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 
 	vh, err := hamt.LoadNode(ctx, cst, st.VerifiedClients)
 	if err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 
 	var dcap verifreg.DataCap
 	if err := vh.Find(ctx, string(caddr.Bytes()), &dcap); err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 	return dcap, nil
 }
 
-func lotusCheckVerifierRemainingBytes(targetAddr string) (verifreg.DataCap, error) {
+func lotusCheckVerifierRemainingBytes(targetAddr string) (big.Int, error) {
 	vaddr, err := address.NewFromString(targetAddr)
 	if err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 
 	api, closer, err := GetFullNodeAPI()
 	if err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 	defer closer()
 
@@ -292,7 +293,7 @@ func lotusCheckVerifierRemainingBytes(targetAddr string) (verifreg.DataCap, erro
 
 	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, types.EmptyTSK)
 	if err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 
 	apibs := apibstore.NewAPIBlockstore(api)
@@ -300,17 +301,17 @@ func lotusCheckVerifierRemainingBytes(targetAddr string) (verifreg.DataCap, erro
 
 	var st verifreg.State
 	if err := cst.Get(ctx, act.Head, &st); err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 
 	vh, err := hamt.LoadNode(ctx, cst, st.Verifiers)
 	if err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 
 	var dcap verifreg.DataCap
 	if err := vh.Find(ctx, string(vaddr.Bytes()), &dcap); err != nil {
-		return verifreg.DataCap{}, err
+		return big.Int{}, err
 	}
 	return dcap, nil
 }
@@ -383,9 +384,9 @@ func GetAPIInfo(t repo.RepoType) (lcli.APIInfo, error) {
 	// if err != nil {
 	// 	return lcli.APIInfo{}, xerrors.Errorf("cound not expand home dir (%s): %w", repoFlag, err)
 	// }
-	temp := os.TempDir()
+	// temp := os.TempDir()
 
-	r, err := repo.NewFS(temp)
+	r, err := repo.NewFS("/home/bryn/.lotus")
 	if err != nil {
 		return lcli.APIInfo{}, xerrors.Errorf("could not open repo at path: %w", err)
 	}

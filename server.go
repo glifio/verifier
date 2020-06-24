@@ -1,12 +1,13 @@
 package main
 
 import (
-	"math/big"
+	// "fmt"
 	"net/http"
-	"strings"
+	// "strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	big "github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -41,19 +42,6 @@ var (
 	ErrUserTooNew          = errors.New("user account is too new")
 	ErrSufficientAllowance = errors.New("allowance is already sufficient")
 )
-
-type User struct {
-	ID              string
-	FilecoinAddress string
-	Accounts        map[string]AccountData
-}
-
-type AccountData struct {
-	Username  string    `json:"login"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-}
 
 func serveOauth(c *gin.Context) {
 	providerName := c.Param("provider")
@@ -111,7 +99,7 @@ func serveOauth(c *gin.Context) {
 	})
 
 	// Sign and get the complete encoded token as a string using the secret
-	jwtTokenString, err := token.SignedString(jwtSecret)
+	jwtTokenString, err := jwtToken.SignedString(jwtSecret)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "generating JWT: " + err.Error()})
 		return
@@ -156,61 +144,74 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Fetch the targetAddr from the provided JWT
-	var targetAddr string
-	{
-		authHeader := c.GetHeader("Authorization")
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "jwt token missing"})
-			return
-		}
+	var targetAddr string = "t1cnbk3mhvv6ql6oo2s4s5tf7klsj35r762uyihwy"
+	// {
+	// 	authHeader := c.GetHeader("Authorization")
+	// 	if !strings.HasPrefix(authHeader, "Bearer ") {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "jwt token missing"})
+	// 		return
+	// 	}
 
-		jwtToken := strings.TrimSpace(authHeader[len("Bearer "):])
+	// 	jwtToken := strings.TrimSpace(authHeader[len("Bearer "):])
 
-		token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-			}
-			return jwtSecret, nil
-		})
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+	// 	token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (interface{}, error) {
+	// 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+	// 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+	// 		}
+	// 		return jwtSecret, nil
+	// 	})
+	// 	if err != nil {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok || !token.Valid {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
-			return
-		}
+	// 	claims, ok := token.Claims.(jwt.MapClaims)
+	// 	if !ok || !token.Valid {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
+	// 		return
+	// 	}
 
-		targetAddr = claims["filecoinAddress"]
-	}
+	// 	targetAddr, ok = claims["filecoinAddress"].(string)
+	// 	if !ok {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
+	// 		return
+	// 	}
+	// }
 
-	// Ensure that the user meets our criteria for being granted an allowance
-	if time.Now().Sub(user.CreatedAt).Hours() < env.MinAccountAge.Hours() {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
-		return
-	}
+	// user, err := getUserByFilecoinAddress(targetAddr)
+	// if err != nil {
+	// 	c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
+	// 	return
+	// }
 
-	remaining, err := lotusCheckAccountRemainingBytes(targetAddr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	// // Ensure that the user's account is old enough
+	// var foundOne bool
+	// for _, account := range user.Accounts {
+	// 	if time.Now().Sub(account.CreatedAt).Hours() >= env.MinAccountAge.Hours() {
+	// 		foundOne = true
+	// 		break
+	// 	}
+	// }
+	// if !foundOne {
+	// 	c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
+	// 	return
+	// }
 
-	owed := env.MaxAllowanceBytes.Sub(remaining)
-	if owed.Cmp(big.NewInt(0)) <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "you have plenty already, Greedy McRichbags"})
-		return
-	}
+	// remaining, err := lotusCheckAccountRemainingBytes(targetAddr)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 	return
+	// }
 
-	user, err := getUserByFilecoinAddress(targetAddr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	// // Ensure that the user is actually owed bytes
+	// owed := big.Sub(env.MaxAllowanceBytes, remaining)
+	// if big.Cmp(owed, big.NewInt(0)) <= 0 {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "you have plenty already, Greedy McRichbags"})
+	// 	return
+	// }
+	owed, _ := big.FromString("12345")
 
-	err = lotusVerifyAccount(body.FromAddr, targetAddr, owed.String())
+	err := lotusVerifyAccount(body.FromAddr, targetAddr, owed.String())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
