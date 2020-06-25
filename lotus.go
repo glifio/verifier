@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -211,6 +212,13 @@ func lotusListVerifiedClients() ([]AddrAndDataCap, error) {
 	return resp, err
 }
 
+func ignoreNotFound(err error) error {
+	if strings.Contains(err.Error(), "not found") {
+		return nil
+	}
+	return err
+}
+
 func lotusCheckAccountRemainingBytes(targetAddr string) (big.Int, error) {
 	caddr, err := address.NewFromString(targetAddr)
 	if err != nil {
@@ -234,17 +242,17 @@ func lotusCheckAccountRemainingBytes(targetAddr string) (big.Int, error) {
 	cst := cbor.NewCborStore(apibs)
 
 	var st verifreg.State
-	if err := cst.Get(ctx, act.Head, &st); err != nil {
+	if err := cst.Get(ctx, act.Head, &st); ignoreNotFound(err) != nil {
 		return big.Int{}, err
 	}
 
 	vh, err := hamt.LoadNode(ctx, cst, st.VerifiedClients)
-	if err != nil {
+	if ignoreNotFound(err) != nil {
 		return big.Int{}, err
 	}
 
 	var dcap verifreg.DataCap
-	if err := vh.Find(ctx, string(caddr.Bytes()), &dcap); err != nil {
+	if err := vh.Find(ctx, string(caddr.Bytes()), &dcap); ignoreNotFound(err) != nil {
 		return big.Int{}, err
 	}
 	return dcap, nil

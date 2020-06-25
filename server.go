@@ -190,14 +190,8 @@ func serveVerifyAccount(c *gin.Context) {
 
 	remaining, err := lotusCheckAccountRemainingBytes(targetAddr)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			// no-op, empty/unused account
-			remaining = big.NewInt(0)
-
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	// Ensure that the user is actually owed bytes
