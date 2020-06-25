@@ -1,9 +1,9 @@
 package main
 
 import (
-	// "fmt"
+	"fmt"
 	"net/http"
-	// "strings"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -31,8 +31,8 @@ func main() {
 	router.POST("/verify", serveVerifyAccount)
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
-	router.GET("/account-remaining-bytes", serveCheckAccountRemainingBytes)
-	router.GET("/verifier-remaining-bytes", serveCheckVerifierRemainingBytes)
+	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
+	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
 
 	router.Run(":" + env.Port)
 }
@@ -132,90 +132,83 @@ func serveMakeVerifier(c *gin.Context) {
 }
 
 func serveVerifyAccount(c *gin.Context) {
-	type Request struct {
-		FromAddr  string `json:"fromAddr" binding:"required"`
-		Allowance string `json:"allowance" binding:"required"`
+	// Fetch the targetAddr from the provided JWT
+	var targetAddr string
+	{
+		authHeader := c.GetHeader("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "jwt token missing"})
+			return
+		}
+
+		jwtToken := strings.TrimSpace(authHeader[len("Bearer "):])
+
+		token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+			return jwtSecret, nil
+		})
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok || !token.Valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
+			return
+		}
+
+		targetAddr, ok = claims["filecoinAddress"].(string)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
+			return
+		}
 	}
 
-	var body Request
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	user, err := getUserByFilecoinAddress(targetAddr)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
 		return
 	}
 
-	// Fetch the targetAddr from the provided JWT
-	var targetAddr string = "t1cnbk3mhvv6ql6oo2s4s5tf7klsj35r762uyihwy"
-	// {
-	// 	authHeader := c.GetHeader("Authorization")
-	// 	if !strings.HasPrefix(authHeader, "Bearer ") {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "jwt token missing"})
-	// 		return
-	// 	}
+	// Ensure that the user's account is old enough
+	var foundOne bool
+	for _, account := range user.Accounts {
+		if time.Now().Sub(account.CreatedAt).Hours() >= env.MinAccountAge.Hours() {
+			foundOne = true
+			break
+		}
+	}
+	if !foundOne {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
+		return
+	}
 
-	// 	jwtToken := strings.TrimSpace(authHeader[len("Bearer "):])
-
-	// 	token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (interface{}, error) {
-	// 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-	// 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-	// 		}
-	// 		return jwtSecret, nil
-	// 	})
-	// 	if err != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	claims, ok := token.Claims.(jwt.MapClaims)
-	// 	if !ok || !token.Valid {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
-	// 		return
-	// 	}
-
-	// 	targetAddr, ok = claims["filecoinAddress"].(string)
-	// 	if !ok {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
-	// 		return
-	// 	}
-	// }
-
-	// user, err := getUserByFilecoinAddress(targetAddr)
-	// if err != nil {
-	// 	c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
-	// 	return
-	// }
-
-	// // Ensure that the user's account is old enough
-	// var foundOne bool
-	// for _, account := range user.Accounts {
-	// 	if time.Now().Sub(account.CreatedAt).Hours() >= env.MinAccountAge.Hours() {
-	// 		foundOne = true
-	// 		break
-	// 	}
-	// }
-	// if !foundOne {
-	// 	c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
-	// 	return
-	// }
-
-	// remaining, err := lotusCheckAccountRemainingBytes(targetAddr)
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 	return
-	// }
-
-	// // Ensure that the user is actually owed bytes
-	// owed := big.Sub(env.MaxAllowanceBytes, remaining)
-	// if big.Cmp(owed, big.NewInt(0)) <= 0 {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "you have plenty already, Greedy McRichbags"})
-	// 	return
-	// }
-	owed, _ := big.FromString("12345")
-
-	err := lotusVerifyAccount(body.FromAddr, targetAddr, owed.String())
+	remaining, err := lotusCheckAccountRemainingBytes(targetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Ensure that the user is actually owed bytes
+	owed := big.Sub(env.MaxAllowanceBytes, remaining)
+	if big.Cmp(owed, big.NewInt(0)) <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "you have plenty already, Greedy McRichbags"})
+		return
+	}
+
+	cid, err := lotusVerifyAccount(targetAddr, owed.String())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	type Response struct {
+		Cid string `json:"cid"`
+	}
+	c.JSON(http.StatusOK, Response{Cid: cid.String()})
 }
 
 func serveListVerifiers(c *gin.Context) {
@@ -239,41 +232,24 @@ func serveListVerifiedClients(c *gin.Context) {
 }
 
 func serveCheckAccountRemainingBytes(c *gin.Context) {
-	type Request struct {
-		TargetAddr string `json:"targetAddr" binding:"required"`
-	}
+	targetAddr := c.Param("target_addr")
 
-	var body Request
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	dcap, err := lotusCheckAccountRemainingBytes(body.TargetAddr)
+	dcap, err := lotusCheckAccountRemainingBytes(targetAddr)
 	if err != nil {
+		fmt.Printf("%+v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, dcap)
 }
 
 func serveCheckVerifierRemainingBytes(c *gin.Context) {
-	type Request struct {
-		TargetAddr string `json:"targetAddr" binding:"required"`
-	}
+	targetAddr := c.Param("target_addr")
 
-	var body Request
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	dcap, err := lotusCheckVerifierRemainingBytes(body.TargetAddr)
+	dcap, err := lotusCheckVerifierRemainingBytes(targetAddr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, dcap)
 }

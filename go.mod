@@ -2,11 +2,7 @@ module github.com/openworklabs/oauthserver
 
 go 1.14
 
-replace github.com/filecoin-project/filecoin-ffi => ../filecoin-ffi
-
-// replace github.com/filecoin-project/lotus => ../lotus
-
-//replace github.com/filecoin-project/specs-actors => ../specs-actors
+replace github.com/filecoin-project/filecoin-ffi => ./filecoin-ffi
 
 require (
 	github.com/aws/aws-sdk-go v1.32.5 // indirect
