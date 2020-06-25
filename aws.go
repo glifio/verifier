@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -59,7 +60,18 @@ func saveUser(user User) error {
 
 func getUserByFilecoinAddress(filecoinAddr string) (User, error) {
 	table := dynamoTable("filecoin-verified-addresses")
-	var user User
-	err := table.Get("FilecoinAddress", filecoinAddr).One(&user)
-	return user, err
+
+	var users []User
+	err := table.Scan().
+		Filter("FilecoinAddress = ?", filecoinAddr).
+		Limit(1).
+		All(&users)
+	if err != nil {
+		return User{}, err
+	}
+
+	if len(users) == 0 {
+		return User{}, errors.New("user not found")
+	}
+	return users[0], nil
 }
