@@ -20,7 +20,7 @@ func main() {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST"},
-		AllowHeaders:     []string{"Origin", "Content-Type"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -166,6 +166,8 @@ func serveVerifyAccount(c *gin.Context) {
 			return
 		}
 	}
+
+	fmt.Println(targetAddr, "target")
 
 	user, err := getUserByFilecoinAddress(targetAddr)
 	if err != nil {
