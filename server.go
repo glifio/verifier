@@ -78,7 +78,7 @@ func serveOauth(c *gin.Context) {
 	}
 
 	// Update user record in Dynamo
-	user, err := fetchUserWithProviderEmail(providerName, accountData.Email)
+	user, err := fetchUserWithProviderUniqueID(providerName, accountData.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "fetching DynamoDB user: " + err.Error()})
 		return

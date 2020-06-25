@@ -17,9 +17,8 @@ type User struct {
 }
 
 type AccountData struct {
-	Username  string    `json:"login"`
+	UniqueID  string    `json:"unique_id"`
 	Name      string    `json:"name"`
-	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -31,12 +30,12 @@ func dynamoTable(name string) dynamo.Table {
 	return dynamo.New(awssession.New(), awsConfig).Table("filecoin-verified-addresses")
 }
 
-func fetchUserWithProviderEmail(providerName, email string) (User, error) {
+func fetchUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
 	table := dynamoTable("filecoin-verified-addresses")
 
 	var users []User
 	err := table.Scan().
-		Filter("Accounts."+providerName+".Email = ?", email).
+		Filter("Accounts."+providerName+".UniqueID = ?", uniqueID).
 		Limit(1).
 		All(&users)
 	if err != nil {

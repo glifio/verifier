@@ -25,7 +25,6 @@ func init() {
 			type GithubAccountData struct {
 				Username  string    `json:"login"`
 				Name      string    `json:"name"`
-				Email     string    `json:"email"`
 				CreatedAt time.Time `json:"created_at"`
 			}
 
@@ -36,9 +35,8 @@ func init() {
 			}
 
 			accountData := AccountData{
-				Username:  user.Username,
+				UniqueID:  user.Username,
 				Name:      user.Name,
-				Email:     user.Email,
 				CreatedAt: user.CreatedAt,
 			}
 			return accountData, nil
