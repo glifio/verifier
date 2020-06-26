@@ -242,7 +242,12 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, dcap)
+
+	if dcap.Int != nil {
+		c.JSON(http.StatusOK, dcap.String())
+		return
+	}
+	c.JSON(http.StatusOK, "0")
 }
 
 func serveCheckVerifierRemainingBytes(c *gin.Context) {
