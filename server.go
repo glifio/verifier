@@ -167,8 +167,6 @@ func serveVerifyAccount(c *gin.Context) {
 		}
 	}
 
-	fmt.Println(targetAddr, "target")
-
 	user, err := getUserByFilecoinAddress(targetAddr)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
@@ -197,7 +195,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Ensure that the user is actually owed bytes
 	owed := big.Sub(env.MaxAllowanceBytes, remaining)
 	if big.Cmp(owed, big.NewInt(0)) <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "you have plenty already, Greedy McRichbags"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "you have verified data already, Greedy McRichbags"})
 		return
 	}
 
@@ -242,7 +240,12 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, dcap)
+
+	if dcap.Int != nil {
+		c.JSON(http.StatusOK, dcap.String())
+		return
+	}
+	c.JSON(http.StatusOK, "0")
 }
 
 func serveCheckVerifierRemainingBytes(c *gin.Context) {
