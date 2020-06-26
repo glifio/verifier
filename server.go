@@ -38,9 +38,10 @@ func main() {
 }
 
 var (
-	ErrUnsupportedProvider = errors.New("unsupported oauth provider")
-	ErrUserTooNew          = errors.New("user account is too new")
-	ErrSufficientAllowance = errors.New("allowance is already sufficient")
+	ErrUnsupportedProvider  = errors.New("unsupported oauth provider")
+	ErrUserTooNew           = errors.New("user account is too new")
+	ErrSufficientAllowance  = errors.New("allowance is already sufficient")
+	ErrAllocatedTooRecently = errors.New("you must wait 30 days in between reallocations")
 )
 
 func serveOauth(c *gin.Context) {
@@ -186,6 +187,12 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
+	// Ensure that the user hasn't asked for more allocation too recently
+	if user.MostRecentAllocation.Add(30 * 24 * time.Hour).After(time.Now()) {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
+		return
+	}
+
 	remaining, err := lotusCheckAccountRemainingBytes(targetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -227,7 +234,6 @@ func serveListVerifiedClients(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, verifiedClients)
 }
 
@@ -236,16 +242,24 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 
 	dcap, err := lotusCheckAccountRemainingBytes(targetAddr)
 	if err != nil {
-		fmt.Printf("%+v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if dcap.Int != nil {
-		c.JSON(http.StatusOK, dcap.String())
-		return
+	if dcap.Int == nil {
+		dcap = big.NewInt(0)
 	}
-	c.JSON(http.StatusOK, "0")
+
+	user, err := getUserByFilecoinAddress(targetAddr)
+	if err != nil {
+		// no-op
+	}
+
+	type Response struct {
+		RemainingBytes       string    `json:"remainingBytes"`
+		MostRecentAllocation time.Time `json:"mostRecentAllocation"`
+	}
+	c.JSON(http.StatusOK, Response{dcap.String(), user.MostRecentAllocation})
 }
 
 func serveCheckVerifierRemainingBytes(c *gin.Context) {
