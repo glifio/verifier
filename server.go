@@ -167,8 +167,6 @@ func serveVerifyAccount(c *gin.Context) {
 		}
 	}
 
-	fmt.Println(targetAddr, "target")
-
 	user, err := getUserByFilecoinAddress(targetAddr)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
