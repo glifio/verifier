@@ -17,7 +17,7 @@ docker run -it \
     -e LOTUS_VERIFIER_ADDR=... \
     -e MIN_ACCOUNT_AGE_DAYS=... \
     -e MAX_ALLOWANCE_BYTES=... \
-    -p 8080:8080
-verifier
+    -p 8080:8080 \
+    openworklabs/verifier
 ```
 
