@@ -213,7 +213,7 @@ func lotusListVerifiedClients() ([]AddrAndDataCap, error) {
 }
 
 func ignoreNotFound(err error) error {
-	if strings.Contains(err.Error(), "not found") {
+	if err != nil && strings.Contains(err.Error(), "not found") {
 		return nil
 	}
 	return err
