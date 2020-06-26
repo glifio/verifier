@@ -197,7 +197,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Ensure that the user is actually owed bytes
 	owed := big.Sub(env.MaxAllowanceBytes, remaining)
 	if big.Cmp(owed, big.NewInt(0)) <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "you have plenty already, Greedy McRichbags"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "you have verified data already, Greedy McRichbags"})
 		return
 	}
 
