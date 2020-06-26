@@ -255,7 +255,11 @@ func lotusCheckAccountRemainingBytes(targetAddr string) (big.Int, error) {
 	if err := vh.Find(ctx, string(caddr.Bytes()), &dcap); ignoreNotFound(err) != nil {
 		return big.Int{}, err
 	}
-	return dcap, nil
+
+	if dcap.Int != nil {
+		return dcap, nil
+	}
+	return big.NewInt(0), nil
 }
 
 func lotusCheckVerifierRemainingBytes(targetAddr string) (big.Int, error) {
