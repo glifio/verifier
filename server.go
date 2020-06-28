@@ -13,8 +13,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var jwtSecret = []byte("ALSKjdflakjs;dklfj;askdj;flaskdjf")
-
 func main() {
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
@@ -53,9 +51,8 @@ func serveOauth(c *gin.Context) {
 	}
 
 	type Request struct {
-		Code            string `json:"code" binding:"required"`
-		State           string `json:"state" binding:"required"`
-		FilecoinAddress string `json:"filecoinAddress" binding:"required"`
+		Code  string `json:"code" binding:"required"`
+		State string `json:"state" binding:"required"`
 	}
 
 	var body Request
@@ -79,13 +76,12 @@ func serveOauth(c *gin.Context) {
 	}
 
 	// Update user record in Dynamo
-	user, err := fetchUserWithProviderUniqueID(providerName, accountData.UniqueID)
+	user, err := getUserWithProviderUniqueID(providerName, accountData.UniqueID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "fetching DynamoDB user: " + err.Error()})
 		return
 	}
 
-	user.FilecoinAddress = body.FilecoinAddress
 	user.Accounts[providerName] = accountData
 
 	err = saveUser(user)
@@ -95,12 +91,12 @@ func serveOauth(c *gin.Context) {
 	}
 
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"filecoinAddress": body.FilecoinAddress,
-		"nbf":             time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
+		"userID": user.ID,
+		"nbf":    time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
 	})
 
 	// Sign and get the complete encoded token as a string using the secret
-	jwtTokenString, err := jwtToken.SignedString(jwtSecret)
+	jwtTokenString, err := jwtToken.SignedString([]byte(env.JWTSecret))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "generating JWT: " + err.Error()})
 		return
@@ -133,8 +129,18 @@ func serveMakeVerifier(c *gin.Context) {
 }
 
 func serveVerifyAccount(c *gin.Context) {
-	// Fetch the targetAddr from the provided JWT
-	var targetAddr string
+	type Request struct {
+		TargetAddr string `json:"targetAddr" binding:"required"`
+	}
+
+	var body Request
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch the userID from the provided JWT
+	var userID string
 	{
 		authHeader := c.GetHeader("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -148,7 +154,7 @@ func serveVerifyAccount(c *gin.Context) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 			}
-			return jwtSecret, nil
+			return []byte(env.JWTSecret), nil
 		})
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -161,14 +167,14 @@ func serveVerifyAccount(c *gin.Context) {
 			return
 		}
 
-		targetAddr, ok = claims["filecoinAddress"].(string)
+		userID, ok = claims["userID"].(string)
 		if !ok {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
 			return
 		}
 	}
 
-	user, err := getUserByFilecoinAddress(targetAddr)
+	user, err := getUserByID(userID)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
 		return
@@ -193,20 +199,29 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	remaining, err := lotusCheckAccountRemainingBytes(targetAddr)
+	// Ensure that the user is actually owed bytes
+	remaining, err := lotusCheckAccountRemainingBytes(body.TargetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Ensure that the user is actually owed bytes
 	owed := big.Sub(env.MaxAllowanceBytes, remaining)
 	if big.Cmp(owed, big.NewInt(0)) <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "you have verified data already, Greedy McRichbags"})
 		return
 	}
 
-	cid, err := lotusVerifyAccount(targetAddr, owed.String())
+	// Allocate the bytes
+	cid, err := lotusVerifyAccount(body.TargetAddr, owed.String())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update the user's `MostRecentAllocation` field
+	user.MostRecentAllocation = time.Now()
+	err = saveUser(user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

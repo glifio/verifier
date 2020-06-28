@@ -13,7 +13,6 @@ import (
 
 type User struct {
 	ID                   string
-	FilecoinAddress      string
 	Accounts             map[string]AccountData
 	MostRecentAllocation time.Time
 }
@@ -32,7 +31,15 @@ func dynamoTable(name string) dynamo.Table {
 	return dynamo.New(awssession.New(), awsConfig).Table("filecoin-verified-addresses")
 }
 
-func fetchUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
+func getUserByID(userID string) (User, error) {
+	table := dynamoTable("filecoin-verified-addresses")
+
+	var user User
+	err := table.Get("ID", userID).One(&user)
+	return user, err
+}
+
+func getUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
 	table := dynamoTable("filecoin-verified-addresses")
 
 	var users []User

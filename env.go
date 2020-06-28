@@ -12,6 +12,7 @@ import (
 
 type Env struct {
 	Port               string          `env:"PORT" envDefault:"8080"`
+	JWTSecret          string          `env:"JWT_SECRET,required"`
 	AWSRegion          string          `env:"AWS_REGION" envDefault:"us-east-1"`
 	AWSAccessKey       string          `env:"AWS_ACCESS_KEY,required"`
 	AWSSecretKey       string          `env:"AWS_SECRET_KEY,required"`
