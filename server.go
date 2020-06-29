@@ -219,7 +219,8 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	// Update the user's `MostRecentAllocation` field
+	// Update the user's `MostRecentAllocation` and `FilecoinAddress` fields
+	user.FilecoinAddress = body.TargetAddr
 	user.MostRecentAllocation = time.Now()
 	err = saveUser(user)
 	if err != nil {

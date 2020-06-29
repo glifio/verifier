@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/pkg/errors"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
@@ -15,6 +16,7 @@ type User struct {
 	ID                   string
 	Accounts             map[string]AccountData
 	MostRecentAllocation time.Time
+	FilecoinAddress      string
 }
 
 type AccountData struct {
