@@ -3,8 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"log"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -26,7 +27,7 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-func lotusMakeAccountAVerifier(targetAddr string, allowanceStr string) error {
+func lotusMakeAccountAVerifier(ctx context.Context, targetAddr string, allowanceStr string) error {
 	target, err := address.NewFromString(targetAddr)
 	if err != nil {
 		return err
@@ -42,7 +43,7 @@ func lotusMakeAccountAVerifier(targetAddr string, allowanceStr string) error {
 		return err
 	}
 
-	api, closer, err := GetFullNodeAPI()
+	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -57,26 +58,21 @@ func lotusMakeAccountAVerifier(targetAddr string, allowanceStr string) error {
 		Params:   params,
 	}
 
-	ctx := context.TODO()
-
 	smsg, err := api.MpoolPushMessage(ctx, msg)
 	if err != nil {
 		return err
 	}
 
-	mwait, err := api.StateWaitMsg(ctx, smsg.Cid(), build.MessageConfidence)
+	ok, err := lotusWaitMessageResult(ctx, smsg.Cid())
 	if err != nil {
 		return err
+	} else if !ok {
+		return errors.New("failed to make account a verifier")
 	}
-
-	if mwait.Receipt.ExitCode != 0 {
-		return fmt.Errorf("failed to add verifier: %d", mwait.Receipt.ExitCode)
-	}
-
 	return nil
 }
 
-func lotusVerifyAccount(targetAddr string, allowanceStr string) (cid.Cid, error) {
+func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr string) (cid.Cid, error) {
 	target, err := address.NewFromString(targetAddr)
 	if err != nil {
 		return cid.Cid{}, err
@@ -92,7 +88,7 @@ func lotusVerifyAccount(targetAddr string, allowanceStr string) (cid.Cid, error)
 		return cid.Cid{}, err
 	}
 
-	api, closer, err := GetFullNodeAPI()
+	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return cid.Cid{}, err
 	}
@@ -107,13 +103,10 @@ func lotusVerifyAccount(targetAddr string, allowanceStr string) (cid.Cid, error)
 		Params:   params,
 	}
 
-	ctx := context.TODO()
-
 	smsg, err := api.MpoolPushMessage(ctx, msg)
 	if err != nil {
 		return cid.Cid{}, err
 	}
-
 	return smsg.Cid(), nil
 }
 
@@ -122,14 +115,12 @@ type AddrAndDataCap struct {
 	DataCap verifreg.DataCap
 }
 
-func lotusListVerifiers() ([]AddrAndDataCap, error) {
-	api, closer, err := GetFullNodeAPI()
+func lotusListVerifiers(ctx context.Context) ([]AddrAndDataCap, error) {
+	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer closer()
-
-	ctx := context.TODO()
 
 	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, types.EmptyTSK)
 	if err != nil {
@@ -167,14 +158,12 @@ func lotusListVerifiers() ([]AddrAndDataCap, error) {
 	return resp, err
 }
 
-func lotusListVerifiedClients() ([]AddrAndDataCap, error) {
-	api, closer, err := GetFullNodeAPI()
+func lotusListVerifiedClients(ctx context.Context) ([]AddrAndDataCap, error) {
+	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer closer()
-
-	ctx := context.TODO()
 
 	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, types.EmptyTSK)
 	if err != nil {
@@ -219,19 +208,17 @@ func ignoreNotFound(err error) error {
 	return err
 }
 
-func lotusCheckAccountRemainingBytes(targetAddr string) (big.Int, error) {
+func lotusCheckAccountRemainingBytes(ctx context.Context, targetAddr string) (big.Int, error) {
 	caddr, err := address.NewFromString(targetAddr)
 	if err != nil {
 		return big.Int{}, err
 	}
 
-	api, closer, err := GetFullNodeAPI()
+	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return big.Int{}, err
 	}
 	defer closer()
-
-	ctx := context.TODO()
 
 	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, types.EmptyTSK)
 	if err != nil {
@@ -262,19 +249,17 @@ func lotusCheckAccountRemainingBytes(targetAddr string) (big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func lotusCheckVerifierRemainingBytes(targetAddr string) (big.Int, error) {
+func lotusCheckVerifierRemainingBytes(ctx context.Context, targetAddr string) (big.Int, error) {
 	vaddr, err := address.NewFromString(targetAddr)
 	if err != nil {
 		return big.Int{}, err
 	}
 
-	api, closer, err := GetFullNodeAPI()
+	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return big.Int{}, err
 	}
 	defer closer()
-
-	ctx := context.TODO()
 
 	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, types.EmptyTSK)
 	if err != nil {
@@ -301,14 +286,54 @@ func lotusCheckVerifierRemainingBytes(targetAddr string) (big.Int, error) {
 	return dcap, nil
 }
 
-func GetFullNodeAPI() (api.FullNode, jsonrpc.ClientCloser, error) {
-	ainfo := lcli.APIInfo{
-		Token: []byte(env.LotusAPIToken),
+func lotusGetFullNodeAPI(ctx context.Context) (apiClient api.FullNode, closer jsonrpc.ClientCloser, err error) {
+	err = retry(ctx, func() error {
+		ainfo := lcli.APIInfo{Token: []byte(env.LotusAPIToken)}
+
+		var innerErr error
+		apiClient, closer, innerErr = client.NewFullNodeRPC(env.LotusAPIDialAddr, ainfo.AuthHeader())
+		return innerErr
+	})
+	return
+}
+
+func lotusWaitMessageResult(ctx context.Context, cid cid.Cid) (bool, error) {
+	client, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		log.Println("error getting FullNodeAPI:", err)
+		return false, err
 	}
-	return client.NewFullNodeRPC(
-		env.LotusAPIDialAddr,
-		ainfo.AuthHeader(),
-	)
+	defer closer()
+
+	var mwait *api.MsgLookup
+	err = retry(ctx, func() error {
+		mwait, err = client.StateWaitMsg(ctx, cid, build.MessageConfidence)
+		return err
+	})
+	if err != nil {
+		log.Println("error awaiting message result:", err)
+		return false, err
+	}
+	return mwait.Receipt.ExitCode == 0, nil
+}
+
+func retry(ctx context.Context, fn func() error) (err error) {
+	wait := 5 * time.Second
+	for {
+		select {
+		case <-ctx.Done():
+			return err
+		default:
+		}
+
+		err = fn()
+		if err != nil {
+			time.Sleep(wait)
+			wait += wait / 2
+			continue
+		}
+		return nil
+	}
 }
 
 func withStack(err *error) {

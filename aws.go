@@ -63,6 +63,22 @@ func getUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
 	return user, nil
 }
 
+func lockUser(userID string) error {
+	table := dynamoTable("filecoin-verified-addresses")
+	return table.Update("ID", userID).
+		Set("Locked", true).
+		If("'Locked' = ? OR attribute_not_exists(Locked)", false).
+		Run()
+}
+
+func unlockUser(userID string) error {
+	table := dynamoTable("filecoin-verified-addresses")
+	return table.Update("ID", userID).
+		Set("Locked", false).
+		If("'Locked' = ?", true).
+		Run()
+}
+
 func saveUser(user User) error {
 	table := dynamoTable("filecoin-verified-addresses")
 	return table.Put(user).Run()

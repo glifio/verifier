@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -121,7 +123,10 @@ func serveMakeVerifier(c *gin.Context) {
 		return
 	}
 
-	err := lotusMakeAccountAVerifier(body.TargetAddr, body.Allowance)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := lotusMakeAccountAVerifier(ctx, body.TargetAddr, body.Allowance)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -139,40 +144,19 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	// Fetch the userID from the provided JWT
-	var userID string
-	{
-		authHeader := c.GetHeader("Authorization")
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "jwt token missing"})
-			return
-		}
-
-		jwtToken := strings.TrimSpace(authHeader[len("Bearer "):])
-
-		token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-			}
-			return []byte(env.JWTSecret), nil
-		})
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok || !token.Valid {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
-			return
-		}
-
-		userID, ok = claims["userID"].(string)
-		if !ok {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jwt"})
-			return
-		}
+	userID, err := getUserIDFromJWT(c)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
 	}
+
+	// Lock the user for the duration of this operation
+	err = lockUser(userID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+	defer unlockUser(userID)
 
 	user, err := getUserByID(userID)
 	if err != nil {
@@ -200,7 +184,10 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Ensure that the user is actually owed bytes
-	remaining, err := lotusCheckAccountRemainingBytes(body.TargetAddr)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	remaining, err := lotusCheckAccountRemainingBytes(ctx, body.TargetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -213,39 +200,57 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Allocate the bytes
-	cid, err := lotusVerifyAccount(body.TargetAddr, owed.String())
+	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	cid, err := lotusVerifyAccount(ctx, body.TargetAddr, owed.String())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Update the user's `MostRecentAllocation` and `FilecoinAddress` fields
-	user.FilecoinAddress = body.TargetAddr
-	user.MostRecentAllocation = time.Now()
-	err = saveUser(user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
+	// Respond to the HTTP request
 	type Response struct {
 		Cid string `json:"cid"`
 	}
 	c.JSON(http.StatusOK, Response{Cid: cid.String()})
+
+	// Determine whether the Filecoin message succeeded
+	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	ok, err := lotusWaitMessageResult(ctx, cid)
+	if err != nil {
+		// This is already logged in lotusWaitMessageResult
+		return
+	}
+	user.FilecoinAddress = body.TargetAddr
+	if ok {
+		user.MostRecentAllocation = time.Now()
+	}
+	err = saveUser(user)
+	if err != nil {
+		log.Println("error saving user:", err)
+	}
 }
 
 func serveListVerifiers(c *gin.Context) {
-	verifiers, err := lotusListVerifiers()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	verifiers, err := lotusListVerifiers(ctx)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, verifiers)
 }
 
 func serveListVerifiedClients(c *gin.Context) {
-	verifiedClients, err := lotusListVerifiedClients()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	verifiedClients, err := lotusListVerifiedClients(ctx)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -256,7 +261,10 @@ func serveListVerifiedClients(c *gin.Context) {
 func serveCheckAccountRemainingBytes(c *gin.Context) {
 	targetAddr := c.Param("target_addr")
 
-	dcap, err := lotusCheckAccountRemainingBytes(targetAddr)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dcap, err := lotusCheckAccountRemainingBytes(ctx, targetAddr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -281,10 +289,43 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 func serveCheckVerifierRemainingBytes(c *gin.Context) {
 	targetAddr := c.Param("target_addr")
 
-	dcap, err := lotusCheckVerifierRemainingBytes(targetAddr)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dcap, err := lotusCheckVerifierRemainingBytes(ctx, targetAddr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, dcap)
+}
+
+func getUserIDFromJWT(c *gin.Context) (string, error) {
+	authHeader := c.GetHeader("Authorization")
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return "", errors.New("bad Authorization header")
+	}
+
+	jwtToken := strings.TrimSpace(authHeader[len("Bearer "):])
+
+	token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(env.JWTSecret), nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return "", err
+	}
+
+	userID, ok := claims["userID"].(string)
+	if !ok {
+		return "", err
+	}
+	return userID, nil
 }
