@@ -135,7 +135,7 @@ func lotusListVerifiers(ctx context.Context) ([]AddrAndDataCap, error) {
 		return nil, err
 	}
 
-	vh, err := hamt.LoadNode(ctx, cst, st.Verifiers)
+	vh, err := hamt.LoadNode(ctx, cst, st.Verifiers, hamt.UseTreeBitWidth(5))
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func lotusListVerifiedClients(ctx context.Context) ([]AddrAndDataCap, error) {
 		return nil, err
 	}
 
-	vh, err := hamt.LoadNode(ctx, cst, st.VerifiedClients)
+	vh, err := hamt.LoadNode(ctx, cst, st.VerifiedClients, hamt.UseTreeBitWidth(5))
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +233,7 @@ func lotusCheckAccountRemainingBytes(ctx context.Context, targetAddr string) (bi
 		return big.Int{}, err
 	}
 
-	vh, err := hamt.LoadNode(ctx, cst, st.VerifiedClients)
+	vh, err := hamt.LoadNode(ctx, cst, st.VerifiedClients, hamt.UseTreeBitWidth(5))
 	if ignoreNotFound(err) != nil {
 		return big.Int{}, err
 	}
@@ -274,7 +274,7 @@ func lotusCheckVerifierRemainingBytes(ctx context.Context, targetAddr string) (b
 		return big.Int{}, err
 	}
 
-	vh, err := hamt.LoadNode(ctx, cst, st.Verifiers)
+	vh, err := hamt.LoadNode(ctx, cst, st.Verifiers, hamt.UseTreeBitWidth(5))
 	if err != nil {
 		return big.Int{}, err
 	}
