@@ -215,23 +215,24 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, Response{Cid: cid.String()})
 
-	// Determine whether the Filecoin message succeeded
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-
-	ok, err := lotusWaitMessageResult(ctx, cid)
-	if err != nil {
-		// This is already logged in lotusWaitMessageResult
-		return
-	}
-	user.FilecoinAddress = body.TargetAddr
-	if ok {
-		user.MostRecentAllocation = time.Now()
-	}
-	err = saveUser(user)
-	if err != nil {
-		log.Println("error saving user:", err)
-	}
+	go func() {
+		// Determine whether the Filecoin message succeeded
+		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		ok, err := lotusWaitMessageResult(ctx, cid)
+		if err != nil {
+			// This is already logged in lotusWaitMessageResult
+			return
+		}
+		user.FilecoinAddress = body.TargetAddr
+		if ok {
+			user.MostRecentAllocation = time.Now()
+		}
+		err = saveUser(user)
+		if err != nil {
+			log.Println("error saving user:", err)
+		}
+	}()
 }
 
 func serveListVerifiers(c *gin.Context) {
