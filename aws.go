@@ -13,10 +13,11 @@ import (
 )
 
 type User struct {
-	ID                   string
-	Accounts             map[string]AccountData
-	MostRecentAllocation time.Time
-	FilecoinAddress      string
+	ID                    string
+	Accounts              map[string]AccountData
+	MostRecentAllocation  time.Time
+	MostRecentFaucetGrant time.Time
+	FilecoinAddress       string
 }
 
 type AccountData struct {

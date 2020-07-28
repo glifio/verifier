@@ -297,6 +297,42 @@ func lotusGetFullNodeAPI(ctx context.Context) (apiClient api.FullNode, closer js
 	return
 }
 
+func lotusCheckBalance(ctx context.Context, address address.Address) (types.FIL, error) {
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return types.FIL{}, err
+	}
+	defer closer()
+
+	balance, err := api.WalletBalance(ctx, address)
+	if err != nil {
+		return types.FIL{}, err
+	}
+	return types.FIL(balance), nil
+}
+
+func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, gasPrice, filAmount types.FIL) (cid.Cid, error) {
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+	defer closer()
+
+	msg := &types.Message{
+		From:     fromAddr,
+		To:       toAddr,
+		Value:    types.BigInt(filAmount),
+		GasLimit: 10000,
+		GasPrice: types.BigInt(gasPrice),
+	}
+
+	sm, err := api.MpoolPushMessage(ctx, msg)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+	return sm.Cid(), nil
+}
+
 func lotusWaitMessageResult(ctx context.Context, cid cid.Cid) (bool, error) {
 	client, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
