@@ -35,6 +35,7 @@ func main() {
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
 	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
+	router.GET("/balance/:target_addr", serveGetBalance)
 	router.POST("/faucet/:target_addr", serveFaucet)
 
 	router.Run(":" + env.Port)
@@ -315,6 +316,37 @@ func serveCheckVerifierRemainingBytes(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, dcap)
+}
+
+func serveGetBalance(c *gin.Context) {
+	targetAddrStr := c.Param("target_addr")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	targetAddr, err := address.NewFromString(targetAddrStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	balance, err := lotusCheckBalance(ctx, targetAddr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := getUserByFilecoinAddress(targetAddr.String())
+	if err != nil {
+		// no-op
+	}
+
+	type Response struct {
+		Balance               string    `json:"balance"`
+		MostRecentFaucetGrant time.Time `json:"mostRecentFaucetGrant"`
+	}
+
+	c.JSON(http.StatusOK, Response{balance.String(), user.MostRecentFaucetGrant})
 }
 
 func serveFaucet(c *gin.Context) {
