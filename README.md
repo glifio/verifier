@@ -1,4 +1,3 @@
-
 # OAuth Faucet + Verifier backend
 
 Docker build:
@@ -25,3 +24,11 @@ docker run -it \
     openworklabs/verifier
 ```
 
+Local dev:
+
+Load environment variables (been using direnv) so: with a `.nvmrc` and then `direnv allow`
+
+```bash
+cd filecoin-ffi && make && cd ../
+go run *.go
+```

@@ -214,7 +214,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Allocate the bytes
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	cid, err := lotusVerifyAccount(ctx, body.TargetAddr, owed.String())
@@ -235,7 +235,7 @@ func serveVerifyAccount(c *gin.Context) {
 		defer unlockUser(userID)
 
 		// Determine whether the Filecoin message succeeded
-		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
 		ok, err := lotusWaitMessageResult(ctx, cid)
