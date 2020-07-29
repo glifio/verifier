@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/lotus/chain/types"
 	big "github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -16,6 +18,8 @@ import (
 )
 
 func main() {
+	fmt.Println("Lotus node:", env.LotusAPIDialAddr)
+
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -33,6 +37,8 @@ func main() {
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
 	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
+	router.GET("/balance/:target_addr", serveGetBalance)
+	router.POST("/faucet/:target_addr", serveFaucet)
 
 	router.Run(":" + env.Port)
 }
@@ -150,13 +156,21 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
+	// This helps us keep the user locked while we wait to see if the message was successful.  If
+	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
+	var successfullySubmittedMessage bool
+
 	// Lock the user for the duration of this operation
 	err = lockUser(userID)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
-	defer unlockUser(userID)
+	defer func() {
+		if !successfullySubmittedMessage {
+			unlockUser(userID)
+		}
+	}()
 
 	user, err := getUserByID(userID)
 	if err != nil {
@@ -167,7 +181,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Ensure that the user's account is old enough
 	var foundOne bool
 	for _, account := range user.Accounts {
-		if time.Now().Sub(account.CreatedAt).Hours() >= env.MinAccountAge.Hours() {
+		if time.Now().Sub(account.CreatedAt).Hours() >= (time.Duration(env.MinAccountAgeDays) * 24 * time.Hour).Hours() {
 			foundOne = true
 			break
 		}
@@ -209,6 +223,8 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
+	successfullySubmittedMessage = true
+
 	// Respond to the HTTP request
 	type Response struct {
 		Cid string `json:"cid"`
@@ -216,9 +232,12 @@ func serveVerifyAccount(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Cid: cid.String()})
 
 	go func() {
+		defer unlockUser(userID)
+
 		// Determine whether the Filecoin message succeeded
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
+
 		ok, err := lotusWaitMessageResult(ctx, cid)
 		if err != nil {
 			// This is already logged in lotusWaitMessageResult
@@ -299,6 +318,147 @@ func serveCheckVerifierRemainingBytes(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, dcap)
+}
+
+func serveGetBalance(c *gin.Context) {
+	targetAddrStr := c.Param("target_addr")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	targetAddr, err := address.NewFromString(targetAddrStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	balance, err := lotusCheckBalance(ctx, targetAddr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := getUserByFilecoinAddress(targetAddr.String())
+	if err != nil {
+		// no-op
+	}
+
+	type Response struct {
+		Balance               string    `json:"balance"`
+		MostRecentFaucetGrant time.Time `json:"mostRecentFaucetGrant"`
+	}
+
+	c.JSON(http.StatusOK, Response{balance.String(), user.MostRecentFaucetGrant})
+}
+
+func serveFaucet(c *gin.Context) {
+	targetAddrStr := c.Param("target_addr")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	targetAddr, err := address.NewFromString(targetAddrStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer closer()
+
+	faucetAddr := env.FaucetAddr
+	if faucetAddr == (address.Address{}) {
+		faucetAddr, err = api.WalletDefaultAddress(ctx)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	userID, err := getUserIDFromJWT(c)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+
+	// This helps us keep the user locked while we wait to see if the message was successful.  If
+	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
+	var successfullySubmittedMessage bool
+
+	// Lock the user for the duration of this operation
+	err = lockUser(userID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+	defer func() {
+		if !successfullySubmittedMessage {
+			unlockUser(userID)
+		}
+	}()
+
+	user, err := getUserByID(userID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
+		return
+	}
+
+	// Ensure the user isn't spamming the faucet
+	if user.MostRecentFaucetGrant.Add(env.FaucetRatelimitInHours).After(time.Now()) {
+		c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("you may only use the faucet once every %v", env.FaucetRatelimitInHours)})
+		return
+	}
+
+	balance, err := lotusCheckBalance(ctx, targetAddr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	owed := types.BigSub(types.BigInt(env.MaxAllowanceFIL), types.BigInt(balance))
+	if types.BigCmp(types.NewInt(0), types.NewInt(0)) == -1 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "user is greedy"})
+		return
+	}
+
+	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, env.FaucetGasPrice, types.FIL(owed))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	successfullySubmittedMessage = true
+
+	// Respond to the HTTP request
+	type Response struct {
+		Cid string `json:"cid"`
+	}
+	c.JSON(http.StatusOK, Response{Cid: cid.String()})
+
+	go func() {
+		defer unlockUser(userID)
+
+		// Determine whether the Filecoin message succeeded
+		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+
+		ok, err := lotusWaitMessageResult(ctx, cid)
+		if err != nil {
+			// This is already logged in lotusWaitMessageResult
+			return
+		}
+		if ok {
+			user.MostRecentFaucetGrant = time.Now()
+		}
+		err = saveUser(user)
+		if err != nil {
+			log.Println("error saving user:", err)
+		}
+	}()
 }
 
 func getUserIDFromJWT(c *gin.Context) (string, error) {
