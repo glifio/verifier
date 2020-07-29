@@ -18,6 +18,8 @@ import (
 )
 
 func main() {
+	fmt.Println("Lotus node:", env.LotusAPIDialAddr)
+
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
