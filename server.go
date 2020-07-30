@@ -420,7 +420,7 @@ func serveFaucet(c *gin.Context) {
 	}
 
 	owed := types.BigSub(types.BigInt(env.MaxAllowanceFIL), types.BigInt(balance))
-	if types.BigCmp(types.NewInt(0), types.NewInt(0)) == -1 {
+	if types.BigCmp(owed, types.NewInt(0)) == -1 {
 		c.JSON(http.StatusForbidden, gin.H{"error": "user is greedy"})
 		return
 	}
