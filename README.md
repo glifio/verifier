@@ -18,7 +18,7 @@ docker run -it \
     -e MAX_ALLOWANCE_BYTES=... \
     -e MAX_ALLOWANCE_FIL=... \
     -e FAUCET_ADDR=... \
-    -e FAUCET_RATELIMIT_HOURS=... \
+    -e FAUCET_RATE_LIMIT=... \
     -e FAUCET_GAS_PRICE=... \
     -p 8080:8080 \
     openworklabs/verifier

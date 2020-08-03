@@ -54,7 +54,7 @@ func lotusMakeAccountAVerifier(ctx context.Context, targetAddr string, allowance
 		From:     env.LotusVerifierAddr,
 		Method:   builtin.MethodsVerifiedRegistry.AddVerifier,
 		GasPrice: types.NewInt(1),
-		GasLimit: 300000,
+		GasLimit: 10000000,
 		Params:   params,
 	}
 
@@ -99,7 +99,7 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 		From:     env.LotusVerifierAddr,
 		Method:   builtin.MethodsVerifiedRegistry.AddVerifiedClient,
 		GasPrice: types.NewInt(1),
-		GasLimit: 300000,
+		GasLimit: 10000000,
 		Params:   params,
 	}
 
@@ -322,7 +322,7 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, gasPric
 		From:     fromAddr,
 		To:       toAddr,
 		Value:    types.BigInt(filAmount),
-		GasLimit: 10000,
+		GasLimit: 10000000,
 		GasPrice: types.BigInt(gasPrice),
 	}
 
