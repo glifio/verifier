@@ -37,7 +37,6 @@ func main() {
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
 	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
-	router.GET("/balance/:target_addr", serveGetBalance)
 	router.POST("/faucet/:target_addr", serveFaucet)
 
 	router.Run(":" + env.Port)
@@ -320,37 +319,6 @@ func serveCheckVerifierRemainingBytes(c *gin.Context) {
 	c.JSON(http.StatusOK, dcap)
 }
 
-func serveGetBalance(c *gin.Context) {
-	targetAddrStr := c.Param("target_addr")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	targetAddr, err := address.NewFromString(targetAddrStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	balance, err := lotusCheckBalance(ctx, targetAddr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	user, err := getUserByFilecoinAddress(targetAddr.String())
-	if err != nil {
-		// no-op
-	}
-
-	type Response struct {
-		Balance               string    `json:"balance"`
-		MostRecentFaucetGrant time.Time `json:"mostRecentFaucetGrant"`
-	}
-
-	c.JSON(http.StatusOK, Response{balance.String(), user.MostRecentFaucetGrant})
-}
-
 func serveFaucet(c *gin.Context) {
 	targetAddrStr := c.Param("target_addr")
 
@@ -408,8 +376,8 @@ func serveFaucet(c *gin.Context) {
 	}
 
 	// Ensure the user isn't spamming the faucet
-	if user.MostRecentFaucetGrant.Add(env.FaucetRatelimitInHours).After(time.Now()) {
-		c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("you may only use the faucet once every %v", env.FaucetRatelimitInHours)})
+	if user.MostRecentFaucetGrant.Add(env.FaucetRateLimit).After(time.Now()) {
+		c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("you may only use the faucet once every %v hours", env.FaucetRateLimit.Hours())})
 		return
 	}
 
@@ -420,8 +388,8 @@ func serveFaucet(c *gin.Context) {
 	}
 
 	owed := types.BigSub(types.BigInt(env.MaxAllowanceFIL), types.BigInt(balance))
-	if types.BigCmp(types.NewInt(0), types.NewInt(0)) == -1 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "user is greedy"})
+	if types.BigCmp(owed, types.NewInt(0)) == -1 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Address already has Filecoin."})
 		return
 	}
 
