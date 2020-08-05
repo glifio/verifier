@@ -26,7 +26,6 @@ type Env struct {
 	MaxAllowanceFIL    types.FIL       `env:"MAX_ALLOWANCE_FIL" envDefault:"1fil"`
 	FaucetAddr         address.Address `env:"FAUCET_ADDR"`
 	FaucetRateLimit    time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
-	FaucetGasPrice     types.FIL       `env:"FAUCET_GAS_PRICE" envDefault:"3afil"`
 }
 
 var env Env

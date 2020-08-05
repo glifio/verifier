@@ -315,13 +315,7 @@ func lotusGetKnownAddress() (address.Address, error) {
 	return address.NewFromString("t080")
 }
 
-func lotusEstimateGasLimit(ctx context.Context, msg *types.Message) (int64, error) {
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer closer()
-
+func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Message) (int64, error) {
 	gasLimit, err := api.GasEstimateGasLimit(ctx, msg, types.EmptyTSK)
 	if err != nil {
 		return 0, err
@@ -330,14 +324,8 @@ func lotusEstimateGasLimit(ctx context.Context, msg *types.Message) (int64, erro
 	return gasLimit, nil
 }
 
-func lotusEstimateGasPrice(ctx context.Context, gasLimit int64) (types.BigInt, error) {
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return types.NewInt(0), err
-	}
-	defer closer()
-
-	address, err := address.NewFromString("t080")
+func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, gasLimit int64) (types.BigInt, error) {
+	address, err := lotusGetKnownAddress()
 	if err != nil {
 		return types.NewInt(0), err
 	}
@@ -369,12 +357,12 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 		GasPrice: types.NewInt(0),
 	}
 
-	gasLimit, err := lotusEstimateGasLimit(ctx, msgForGasEstimation)
+	gasLimit, err := lotusEstimateGasLimit(ctx, api, msgForGasEstimation)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 
-	gasPrice, err := lotusEstimateGasPrice(ctx, gasLimit)
+	gasPrice, err := lotusEstimateGasPrice(ctx, api, gasLimit)
 	if err != nil {
 		return cid.Cid{}, err
 	}
