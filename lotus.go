@@ -53,8 +53,8 @@ func lotusMakeAccountAVerifier(ctx context.Context, targetAddr string, allowance
 		To:       builtin.VerifiedRegistryActorAddr,
 		From:     env.LotusVerifierAddr,
 		Method:   builtin.MethodsVerifiedRegistry.AddVerifier,
-		GasPrice: types.NewInt(1),
-		GasLimit: 10000000,
+		GasPrice: types.NewInt(0),
+		GasLimit: 0,
 		Params:   params,
 	}
 
@@ -98,8 +98,8 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 		To:       builtin.VerifiedRegistryActorAddr,
 		From:     env.LotusVerifierAddr,
 		Method:   builtin.MethodsVerifiedRegistry.AddVerifiedClient,
-		GasPrice: types.NewInt(1),
-		GasLimit: 10000000,
+		GasPrice: types.NewInt(0),
+		GasLimit: 0,
 		Params:   params,
 	}
 
@@ -311,19 +311,20 @@ func lotusCheckBalance(ctx context.Context, address address.Address) (types.FIL,
 	return types.FIL(balance), nil
 }
 
-func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, gasPrice, filAmount types.FIL) (cid.Cid, error) {
+func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 	defer closer()
 
+	// setting GP and GL to 0 means they get estimated for us
 	msg := &types.Message{
 		From:     fromAddr,
 		To:       toAddr,
 		Value:    types.BigInt(filAmount),
-		GasLimit: 10000000,
-		GasPrice: types.BigInt(gasPrice),
+		GasLimit: 0,
+		GasPrice: types.NewInt(0),
 	}
 
 	sm, err := api.MpoolPushMessage(ctx, msg)
