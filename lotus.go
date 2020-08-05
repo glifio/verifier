@@ -311,10 +311,6 @@ func lotusCheckBalance(ctx context.Context, address address.Address) (types.FIL,
 	return types.FIL(balance), nil
 }
 
-func lotusGetKnownAddress() (address.Address, error) {
-	return address.NewFromString("t080")
-}
-
 func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Message) (int64, error) {
 	gasLimit, err := api.GasEstimateGasLimit(ctx, msg, types.EmptyTSK)
 	if err != nil {
@@ -324,16 +320,12 @@ func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Mes
 	return gasLimit, nil
 }
 
-func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, gasLimit int64) (types.BigInt, error) {
-	address, err := lotusGetKnownAddress()
-	if err != nil {
-		return types.NewInt(0), err
-	}
-
+func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, address address.Address, gasLimit int64) (types.BigInt, error) {
 	gasPrice, err := api.GasEstimateGasPrice(ctx, 0, address, gasLimit, types.EmptyTSK)
 	if err != nil {
 		return types.NewInt(0), err
 	}
+
 	return gasPrice, nil
 }
 
@@ -344,14 +336,14 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	}
 	defer closer()
 
-	address, err := lotusGetKnownAddress()
+	resolvableAddress, err := api.WalletDefaultAddress(ctx)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 
 	msgForGasEstimation := &types.Message{
-		From:     address,
-		To:       address,
+		From:     resolvableAddress,
+		To:       resolvableAddress,
 		Value:    types.BigInt(filAmount),
 		GasLimit: 0,
 		GasPrice: types.NewInt(0),
@@ -362,7 +354,7 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 		return cid.Cid{}, err
 	}
 
-	gasPrice, err := lotusEstimateGasPrice(ctx, api, gasLimit)
+	gasPrice, err := lotusEstimateGasPrice(ctx, api, fromAddr, gasLimit)
 	if err != nil {
 		return cid.Cid{}, err
 	}
