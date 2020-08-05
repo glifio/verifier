@@ -393,7 +393,7 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, env.FaucetGasPrice, types.FIL(owed))
+	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, types.FIL(owed))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
