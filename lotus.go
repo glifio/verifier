@@ -311,6 +311,44 @@ func lotusCheckBalance(ctx context.Context, address address.Address) (types.FIL,
 	return types.FIL(balance), nil
 }
 
+func lotusGetKnownAddress() (address.Address, error) {
+	return address.NewFromString("t080")
+}
+
+func lotusEstimateGasLimit(ctx context.Context, msg *types.Message) (int64, error) {
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer closer()
+
+	gasLimit, err := api.GasEstimateGasLimit(ctx, msg, types.EmptyTSK)
+	if err != nil {
+		return 0, err
+	}
+
+	return gasLimit, nil
+}
+
+func lotusEstimateGasPrice(ctx context.Context, gasLimit int64) (types.BigInt, error) {
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return types.NewInt(0), err
+	}
+	defer closer()
+
+	address, err := address.NewFromString("t080")
+	if err != nil {
+		return types.NewInt(0), err
+	}
+
+	gasPrice, err := api.GasEstimateGasPrice(ctx, 0, address, gasLimit, types.EmptyTSK)
+	if err != nil {
+		return types.NewInt(0), err
+	}
+	return gasPrice, nil
+}
+
 func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
@@ -318,13 +356,35 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	}
 	defer closer()
 
-	// setting GP and GL to 0 means they get estimated for us
+	address, err := lotusGetKnownAddress()
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	msgForGasEstimation := &types.Message{
+		From:     address,
+		To:       address,
+		Value:    types.BigInt(filAmount),
+		GasLimit: 0,
+		GasPrice: types.NewInt(0),
+	}
+
+	gasLimit, err := lotusEstimateGasLimit(ctx, msgForGasEstimation)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	gasPrice, err := lotusEstimateGasPrice(ctx, gasLimit)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
 	msg := &types.Message{
 		From:     fromAddr,
 		To:       toAddr,
 		Value:    types.BigInt(filAmount),
-		GasLimit: 0,
-		GasPrice: types.NewInt(0),
+		GasLimit: gasLimit,
+		GasPrice: gasPrice,
 	}
 
 	sm, err := api.MpoolPushMessage(ctx, msg)
