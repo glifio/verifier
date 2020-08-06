@@ -304,20 +304,15 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	}
 	defer closer()
 
-	resolvableAddress, err := api.WalletDefaultAddress(ctx)
-	if err != nil {
-		return cid.Cid{}, err
-	}
-
-	msgForGasEstimation := &types.Message{
-		From:     resolvableAddress,
-		To:       resolvableAddress,
+	msg := &types.Message{
+		From:     fromAddr,
+		To:       toAddr,
 		Value:    types.BigInt(filAmount),
 		GasLimit: 0,
 		GasPrice: types.NewInt(0),
 	}
 
-	gasLimit, err := lotusEstimateGasLimit(ctx, api, msgForGasEstimation)
+	gasLimit, err := lotusEstimateGasLimit(ctx, api, msg)
 	if err != nil {
 		return cid.Cid{}, err
 	}
@@ -327,14 +322,8 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 		return cid.Cid{}, err
 	}
 
-	msg := &types.Message{
-		From:  fromAddr,
-		To:    toAddr,
-		Value: types.BigInt(filAmount),
-		// add some hefty multiples to the gas
-		GasLimit: gasLimit * int64(env.GasMultiple),
-		GasPrice: types.BigMul(gasPrice, types.NewInt(env.GasMultiple)),
-	}
+	msg.GasLimit = gasLimit * int64(env.GasMultiple)
+	msg.GasPrice = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
 
 	sm, err := api.MpoolPushMessage(ctx, msg)
 	if err != nil {
