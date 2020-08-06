@@ -27,51 +27,6 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-func lotusMakeAccountAVerifier(ctx context.Context, targetAddr string, allowanceStr string) error {
-	target, err := address.NewFromString(targetAddr)
-	if err != nil {
-		return err
-	}
-
-	allowance, err := types.BigFromString(allowanceStr)
-	if err != nil {
-		return err
-	}
-
-	params, err := actors.SerializeParams(&verifreg.AddVerifierParams{Address: target, Allowance: allowance})
-	if err != nil {
-		return err
-	}
-
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return err
-	}
-	defer closer()
-
-	msg := &types.Message{
-		To:       builtin.VerifiedRegistryActorAddr,
-		From:     env.LotusVerifierAddr,
-		Method:   builtin.MethodsVerifiedRegistry.AddVerifier,
-		GasPrice: types.NewInt(0),
-		GasLimit: 0,
-		Params:   params,
-	}
-
-	smsg, err := api.MpoolPushMessage(ctx, msg)
-	if err != nil {
-		return err
-	}
-
-	ok, err := lotusWaitMessageResult(ctx, smsg.Cid())
-	if err != nil {
-		return err
-	} else if !ok {
-		return errors.New("failed to make account a verifier")
-	}
-	return nil
-}
-
 func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr string) (cid.Cid, error) {
 	target, err := address.NewFromString(targetAddr)
 	if err != nil {
@@ -102,6 +57,19 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 		GasLimit: 0,
 		Params:   params,
 	}
+
+	gasLimit, err := lotusEstimateGasLimit(ctx, api, msg)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	gasPrice, err := lotusEstimateGasPrice(ctx, api, env.LotusVerifierAddr, gasLimit)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	msg.GasLimit = gasLimit * int64(env.GasMultiple)
+	msg.GasPrice = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
 
 	smsg, err := api.MpoolPushMessage(ctx, msg)
 	if err != nil {
@@ -311,6 +279,24 @@ func lotusCheckBalance(ctx context.Context, address address.Address) (types.FIL,
 	return types.FIL(balance), nil
 }
 
+func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Message) (int64, error) {
+	gasLimit, err := api.GasEstimateGasLimit(ctx, msg, types.EmptyTSK)
+	if err != nil {
+		return 0, err
+	}
+
+	return gasLimit, nil
+}
+
+func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, address address.Address, gasLimit int64) (types.BigInt, error) {
+	gasPrice, err := api.GasEstimateGasPrice(ctx, 0, address, gasLimit, types.EmptyTSK)
+	if err != nil {
+		return types.NewInt(0), err
+	}
+
+	return gasPrice, nil
+}
+
 func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
@@ -318,7 +304,6 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	}
 	defer closer()
 
-	// setting GP and GL to 0 means they get estimated for us
 	msg := &types.Message{
 		From:     fromAddr,
 		To:       toAddr,
@@ -326,6 +311,19 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 		GasLimit: 0,
 		GasPrice: types.NewInt(0),
 	}
+
+	gasLimit, err := lotusEstimateGasLimit(ctx, api, msg)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	gasPrice, err := lotusEstimateGasPrice(ctx, api, fromAddr, gasLimit)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	msg.GasLimit = gasLimit * int64(env.GasMultiple)
+	msg.GasPrice = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
 
 	sm, err := api.MpoolPushMessage(ctx, msg)
 	if err != nil {
