@@ -31,7 +31,6 @@ func main() {
 	}))
 
 	router.POST("/oauth/:provider", serveOauth)
-	router.POST("/make-verifier", serveMakeVerifier)
 	router.POST("/verify", serveVerifyAccount)
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
@@ -114,28 +113,6 @@ func serveOauth(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, Response{jwtTokenString})
-}
-
-func serveMakeVerifier(c *gin.Context) {
-	type Request struct {
-		TargetAddr string `json:"targetAddr" binding:"required"`
-		Allowance  string `json:"allowance" binding:"required"`
-	}
-
-	var body Request
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	err := lotusMakeAccountAVerifier(ctx, body.TargetAddr, body.Allowance)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 }
 
 func serveVerifyAccount(c *gin.Context) {

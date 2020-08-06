@@ -27,51 +27,6 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-func lotusMakeAccountAVerifier(ctx context.Context, targetAddr string, allowanceStr string) error {
-	target, err := address.NewFromString(targetAddr)
-	if err != nil {
-		return err
-	}
-
-	allowance, err := types.BigFromString(allowanceStr)
-	if err != nil {
-		return err
-	}
-
-	params, err := actors.SerializeParams(&verifreg.AddVerifierParams{Address: target, Allowance: allowance})
-	if err != nil {
-		return err
-	}
-
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return err
-	}
-	defer closer()
-
-	msg := &types.Message{
-		To:       builtin.VerifiedRegistryActorAddr,
-		From:     env.LotusVerifierAddr,
-		Method:   builtin.MethodsVerifiedRegistry.AddVerifier,
-		GasPrice: types.NewInt(0),
-		GasLimit: 0,
-		Params:   params,
-	}
-
-	smsg, err := api.MpoolPushMessage(ctx, msg)
-	if err != nil {
-		return err
-	}
-
-	ok, err := lotusWaitMessageResult(ctx, smsg.Cid())
-	if err != nil {
-		return err
-	} else if !ok {
-		return errors.New("failed to make account a verifier")
-	}
-	return nil
-}
-
 func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr string) (cid.Cid, error) {
 	target, err := address.NewFromString(targetAddr)
 	if err != nil {
@@ -102,6 +57,19 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 		GasLimit: 0,
 		Params:   params,
 	}
+
+	gasLimit, err := lotusEstimateGasLimit(ctx, api, msg)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	gasPrice, err := lotusEstimateGasPrice(ctx, api, env.LotusVerifierAddr, gasLimit)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	msg.GasLimit = gasLimit * int64(env.GasMultiple)
+	msg.GasPrice = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
 
 	smsg, err := api.MpoolPushMessage(ctx, msg)
 	if err != nil {
@@ -360,11 +328,12 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	}
 
 	msg := &types.Message{
-		From:     fromAddr,
-		To:       toAddr,
-		Value:    types.BigInt(filAmount),
-		GasLimit: gasLimit,
-		GasPrice: gasPrice,
+		From:  fromAddr,
+		To:    toAddr,
+		Value: types.BigInt(filAmount),
+		// add some hefty multiples to the gas
+		GasLimit: gasLimit * int64(env.GasMultiple),
+		GasPrice: types.BigMul(gasPrice, types.NewInt(env.GasMultiple)),
 	}
 
 	sm, err := api.MpoolPushMessage(ctx, msg)
