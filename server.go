@@ -174,7 +174,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Ensure that the user is actually owed bytes
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	remaining, err := lotusCheckAccountRemainingBytes(ctx, body.TargetAddr)
@@ -299,7 +299,7 @@ func serveCheckVerifierRemainingBytes(c *gin.Context) {
 func serveFaucet(c *gin.Context) {
 	targetAddrStr := c.Param("target_addr")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	targetAddr, err := address.NewFromString(targetAddrStr)
@@ -365,7 +365,9 @@ func serveFaucet(c *gin.Context) {
 	}
 
 	owed := types.BigSub(types.BigInt(env.MaxAllowanceFIL), types.BigInt(balance))
-	if types.BigCmp(owed, types.NewInt(0)) == -1 {
+	dif := types.BigCmp(owed, types.NewInt(0))
+
+	if dif == 0 || dif == -1 {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Address already has Filecoin."})
 		return
 	}
@@ -388,7 +390,7 @@ func serveFaucet(c *gin.Context) {
 		defer unlockUser(userID)
 
 		// Determine whether the Filecoin message succeeded
-		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
 		ok, err := lotusWaitMessageResult(ctx, cid)
