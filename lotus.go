@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -284,7 +285,7 @@ func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Mes
 	if err != nil {
 		return 0, err
 	}
-
+	fmt.Println("Gas limit ~>", gasLimit)
 	return gasLimit, nil
 }
 
@@ -293,7 +294,6 @@ func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, address addres
 	if err != nil {
 		return types.NewInt(0), err
 	}
-
 	return gasPrice, nil
 }
 
@@ -330,6 +330,53 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 		return cid.Cid{}, err
 	}
 	return sm.Cid(), nil
+}
+
+func lotusGetMinerInfo(ctx context.Context, addr address.Address) (_ *api.MinerPower, _ address.Address, err error) {
+	defer withStack(&err)
+
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return nil, address.Address{}, err
+	}
+	defer closer()
+
+	tipset, err := api.ChainHead(ctx)
+	if err != nil {
+		return nil, address.Address{}, err
+	}
+
+	idAddr, err := api.StateLookupID(ctx, addr, tipset.Key())
+	if err != nil {
+		return nil, address.Address{}, err
+	}
+
+	power, err := api.StateMinerPower(ctx, idAddr, tipset.Key())
+	if err != nil {
+		return nil, address.Address{}, err
+	}
+	fmt.Println("MINER POWER:", power)
+
+	// minerInfo, err := api.MinerGetBaseInfo(ctx, idAddr, 0, tipset.Key())
+	// if err != nil {
+	// 	return nil, address.Address{}, err
+	// }
+	return power, idAddr, nil
+}
+
+func lotusListMiners() ([]address.Address, error) {
+	api, closer, err := lotusGetFullNodeAPI(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	defer closer()
+
+	tipset, err := api.ChainHead(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	return api.StateListMiners(context.TODO(), tipset.Key())
 }
 
 func lotusWaitMessageResult(ctx context.Context, cid cid.Cid) (bool, error) {

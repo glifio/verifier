@@ -10,6 +10,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/types"
 	big "github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/gin-contrib/cors"
@@ -19,6 +20,16 @@ import (
 
 func main() {
 	fmt.Println("Lotus node:", env.LotusAPIDialAddr)
+
+	addrs, err := lotusListMiners()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Miners:")
+	for _, addr := range addrs {
+		fmt.Println("  -", addr.String())
+	}
 
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
@@ -46,6 +57,13 @@ var (
 	ErrUserTooNew           = errors.New("user account is too new")
 	ErrSufficientAllowance  = errors.New("allowance is already sufficient")
 	ErrAllocatedTooRecently = errors.New("you must wait 30 days in between reallocations")
+)
+
+type UserLock string
+
+var (
+	UserLock_Verifier UserLock = "Verifier"
+	UserLock_Faucet   UserLock = "Faucet"
 )
 
 func serveOauth(c *gin.Context) {
@@ -137,14 +155,14 @@ func serveVerifyAccount(c *gin.Context) {
 	var successfullySubmittedMessage bool
 
 	// Lock the user for the duration of this operation
-	err = lockUser(userID)
+	err = lockUser(userID, UserLock_Verifier)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
 	defer func() {
 		if !successfullySubmittedMessage {
-			unlockUser(userID)
+			unlockUser(userID, UserLock_Verifier)
 		}
 	}()
 
@@ -155,14 +173,8 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Ensure that the user's account is old enough
-	var foundOne bool
-	for _, account := range user.Accounts {
-		if time.Now().Sub(account.CreatedAt).Hours() >= (time.Duration(env.MinAccountAgeDays) * 24 * time.Hour).Hours() {
-			foundOne = true
-			break
-		}
-	}
-	if !foundOne {
+	minAccountAge := time.Duration(env.MinAccountAgeDays) * 24 * time.Hour
+	if !user.HasAccountOlderThan(minAccountAge) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}
@@ -208,7 +220,7 @@ func serveVerifyAccount(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{Cid: cid.String()})
 
 	go func() {
-		defer unlockUser(userID)
+		defer unlockUser(userID, UserLock_Verifier)
 
 		// Determine whether the Filecoin message succeeded
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
@@ -335,14 +347,14 @@ func serveFaucet(c *gin.Context) {
 	var successfullySubmittedMessage bool
 
 	// Lock the user for the duration of this operation
-	err = lockUser(userID)
+	err = lockUser(userID, UserLock_Faucet)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
 	defer func() {
 		if !successfullySubmittedMessage {
-			unlockUser(userID)
+			unlockUser(userID, UserLock_Faucet)
 		}
 	}()
 
@@ -352,27 +364,78 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	// Ensure the user isn't spamming the faucet
-	if user.MostRecentFaucetGrant.Add(env.FaucetRateLimit).After(time.Now()) {
-		c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("you may only use the faucet once every %v hours", env.FaucetRateLimit.Hours())})
+	// No account less than a week old is allowed any FIL
+	if !user.HasAccountOlderThan(24 * time.Hour) {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}
 
-	balance, err := lotusCheckBalance(ctx, targetAddr)
+	// Check if the user is a miner
+	minerPower, minerAddr, err := lotusGetMinerInfo(ctx, targetAddr)
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	isMiner := minerPower != nil
+
+	// If not, don't let them request FIL more than once
+	if !isMiner && !user.MostRecentFaucetGrant.IsZero() {
+		c.JSON(http.StatusForbidden, gin.H{"error": "non-miners can only request FIL from the faucet once"})
+		return
+	}
+
+	previousAddr, err := address.NewFromString(user.FilecoinAddress)
 	if err != nil {
+		// TODO
+		// TODO
+		// TODO
+		// TODO
+		// TODO
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	owed := types.BigSub(types.BigInt(env.MaxAllowanceFIL), types.BigInt(balance))
-	dif := types.BigCmp(owed, types.NewInt(0))
-
-	if dif == 0 || dif == -1 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Address already has Filecoin."})
+	previousAddrMinerPower, _, err := lotusGetMinerInfo(ctx, previousAddr)
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, types.FIL(owed))
+	var owed types.BigInt
+	if isMiner {
+		// Ensure the user isn't spamming the faucet: no user can request FIL more
+		// than once every 24 hours unless they've *just* become a miner
+		wasAlreadyMiner := previousAddrMinerPower != nil
+		justBecameMiner := isMiner && !wasAlreadyMiner
+		requestIsTooSoon := user.MostRecentFaucetGrant.Add(env.FaucetRateLimit).After(time.Now())
+		if !justBecameMiner && requestIsTooSoon {
+			c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("you may only use the faucet once every %v hours", env.FaucetRateLimit.Hours())})
+			return
+		}
+
+		// Calculate what the user is owed
+		//
+		//     [min: 2000, max: (400 * miner_size_TiB / elapsed_days)]
+		//
+		daysSinceLastGrant := uint64(time.Now().Sub(user.MostRecentFaucetGrant).Hours()) / 24
+		if daysSinceLastGrant == 0 {
+			daysSinceLastGrant = 1
+		}
+		owed = types.BigDiv(
+			types.BigMul(types.BigInt(env.FaucetBaseRate), types.BigInt(minerPower.MinerPower.RawBytePower)),
+			types.NewInt(daysSinceLastGrant),
+		)
+		if types.BigCmp(owed, types.NewInt(2000)) < 0 {
+			owed = types.NewInt(2000)
+		}
+		targetAddr = minerAddr
+	} else {
+		owed = types.NewInt(2000)
+	}
+
+	owedFIL := types.FIL(types.BigDiv(owed, types.NewInt(build.FilecoinPrecision)))
+
+	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, owedFIL)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -382,12 +445,16 @@ func serveFaucet(c *gin.Context) {
 
 	// Respond to the HTTP request
 	type Response struct {
-		Cid string `json:"cid"`
+		Cid  string `json:"cid"`
+		Sent string `json:"sent"`
 	}
-	c.JSON(http.StatusOK, Response{Cid: cid.String()})
+	c.JSON(http.StatusOK, Response{
+		Cid:  cid.String(),
+		Sent: owedFIL.String(),
+	})
 
 	go func() {
-		defer unlockUser(userID)
+		defer unlockUser(userID, UserLock_Faucet)
 
 		// Determine whether the Filecoin message succeeded
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)

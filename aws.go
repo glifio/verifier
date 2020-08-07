@@ -26,6 +26,15 @@ type AccountData struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+func (user User) HasAccountOlderThan(threshold time.Duration) bool {
+	for _, account := range user.Accounts {
+		if time.Now().Sub(account.CreatedAt).Hours() >= (time.Duration(env.MinAccountAgeDays) * 24 * time.Hour).Hours() {
+			return true
+		}
+	}
+	return false
+}
+
 func dynamoTable(name string) dynamo.Table {
 	awsConfig := aws.NewConfig().
 		WithRegion(env.AWSRegion).
@@ -64,19 +73,19 @@ func getUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
 	return user, nil
 }
 
-func lockUser(userID string) error {
+func lockUser(userID string, lock UserLock) error {
 	table := dynamoTable("filecoin-verified-addresses")
 	return table.Update("ID", userID).
-		Set("Locked", true).
-		If("'Locked' = ? OR attribute_not_exists(Locked)", false).
+		Set("Locked_"+string(lock), true).
+		If("'Locked_"+string(lock)+"' = ? OR attribute_not_exists(Locked)", false).
 		Run()
 }
 
-func unlockUser(userID string) error {
+func unlockUser(userID string, lock UserLock) error {
 	table := dynamoTable("filecoin-verified-addresses")
 	return table.Update("ID", userID).
-		Set("Locked", false).
-		If("'Locked' = ?", true).
+		Set("Locked_"+string(lock), false).
+		If("'Locked_"+string(lock)+"' = ?", true).
 		Run()
 }
 
