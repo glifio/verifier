@@ -17,7 +17,8 @@ type User struct {
 	Accounts              map[string]AccountData
 	MostRecentAllocation  time.Time
 	MostRecentFaucetGrant time.Time
-	FilecoinAddress       string
+	// ReceivedNonMinerFaucetGrant bool
+	FilecoinAddress string
 }
 
 type AccountData struct {

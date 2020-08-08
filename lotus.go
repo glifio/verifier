@@ -332,36 +332,61 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	return sm.Cid(), nil
 }
 
-func lotusGetMinerInfo(ctx context.Context, addr address.Address) (_ *api.MinerPower, _ address.Address, err error) {
+func lotusGetMinerAddr(ctx context.Context, addr address.Address) (address.Address, error) {
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return address.Undef, err
+	}
+	defer closer()
+
+	if addr.Protocol() != address.ID {
+		// if this call errs, we're not gonna check explicit err messages
+		// just assume this is not a miner
+		idAddr, err := api.StateLookupID(ctx, addr, types.EmptyTSK)
+		if err != nil {
+			return address.Undef, nil
+		}
+
+		return lotusGetMinerAddr(ctx, idAddr)
+	}
+
+	actor, err := api.StateGetActor(ctx, addr, types.EmptyTSK)
+	if err != nil {
+		return address.Undef, err
+	}
+
+	// address is a miner
+	if actor.Code == builtin.StorageMinerActorCodeID {
+		return addr, nil
+	}
+
+	return address.Undef, nil
+}
+
+func isMinerAddr(address.Address) bool {
+	return address.Undef.Empty()
+}
+
+func lotusGetMinerPower(ctx context.Context, addr address.Address) (_ *api.MinerPower, err error) {
 	defer withStack(&err)
 
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
-		return nil, address.Address{}, err
+		return nil, err
 	}
 	defer closer()
 
-	tipset, err := api.ChainHead(ctx)
+	idAddr, err := api.StateLookupID(ctx, addr, types.EmptyTSK)
 	if err != nil {
-		return nil, address.Address{}, err
+		return nil, err
 	}
 
-	idAddr, err := api.StateLookupID(ctx, addr, tipset.Key())
+	power, err := api.StateMinerPower(ctx, idAddr, types.EmptyTSK)
 	if err != nil {
-		return nil, address.Address{}, err
+		return nil, err
 	}
 
-	power, err := api.StateMinerPower(ctx, idAddr, tipset.Key())
-	if err != nil {
-		return nil, address.Address{}, err
-	}
-	fmt.Println("MINER POWER:", power)
-
-	// minerInfo, err := api.MinerGetBaseInfo(ctx, idAddr, 0, tipset.Key())
-	// if err != nil {
-	// 	return nil, address.Address{}, err
-	// }
-	return power, idAddr, nil
+	return power, nil
 }
 
 func lotusListMiners() ([]address.Address, error) {
