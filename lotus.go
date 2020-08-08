@@ -51,12 +51,12 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 	defer closer()
 
 	msg := &types.Message{
-		To:       builtin.VerifiedRegistryActorAddr,
-		From:     env.LotusVerifierAddr,
-		Method:   builtin.MethodsVerifiedRegistry.AddVerifiedClient,
-		GasPrice: types.NewInt(0),
-		GasLimit: 0,
-		Params:   params,
+		To:         builtin.VerifiedRegistryActorAddr,
+		From:       env.LotusVerifierAddr,
+		Method:     builtin.MethodsVerifiedRegistry.AddVerifiedClient,
+		GasPremium: types.NewInt(0),
+		GasLimit:   0,
+		Params:     params,
 	}
 
 	gasLimit, err := lotusEstimateGasLimit(ctx, api, msg)
@@ -70,7 +70,7 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 	}
 
 	msg.GasLimit = gasLimit * int64(env.GasMultiple)
-	msg.GasPrice = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
+	msg.GasPremium = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
 
 	smsg, err := api.MpoolPushMessage(ctx, msg)
 	if err != nil {
@@ -290,7 +290,7 @@ func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Mes
 }
 
 func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, address address.Address, gasLimit int64) (types.BigInt, error) {
-	gasPrice, err := api.GasEstimateGasPrice(ctx, 0, address, gasLimit, types.EmptyTSK)
+	gasPrice, err := api.GasEsitmateGasPremium(ctx, 0, address, gasLimit, types.EmptyTSK)
 	if err != nil {
 		return types.NewInt(0), err
 	}
@@ -305,11 +305,11 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	defer closer()
 
 	msg := &types.Message{
-		From:     fromAddr,
-		To:       toAddr,
-		Value:    types.BigInt(filAmount),
-		GasLimit: 0,
-		GasPrice: types.NewInt(0),
+		From:       fromAddr,
+		To:         toAddr,
+		Value:      types.BigInt(filAmount),
+		GasLimit:   0,
+		GasPremium: types.NewInt(0),
 	}
 
 	gasLimit, err := lotusEstimateGasLimit(ctx, api, msg)
@@ -323,7 +323,7 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	}
 
 	msg.GasLimit = gasLimit * int64(env.GasMultiple)
-	msg.GasPrice = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
+	msg.GasPremium = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
 
 	sm, err := api.MpoolPushMessage(ctx, msg)
 	if err != nil {
