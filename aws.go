@@ -13,12 +13,12 @@ import (
 )
 
 type User struct {
-	ID                    string
-	Accounts              map[string]AccountData
-	MostRecentAllocation  time.Time
-	MostRecentFaucetGrant time.Time
-	// ReceivedNonMinerFaucetGrant bool
-	FilecoinAddress string
+	ID                          string
+	Accounts                    map[string]AccountData
+	MostRecentAllocation        time.Time
+	MostRecentMinerFaucetGrant  time.Time
+	ReceivedNonMinerFaucetGrant bool
+	VerifiedFilecoinAddress     string
 }
 
 type AccountData struct {
@@ -78,7 +78,7 @@ func lockUser(userID string, lock UserLock) error {
 	table := dynamoTable("filecoin-verified-addresses")
 	return table.Update("ID", userID).
 		Set("Locked_"+string(lock), true).
-		If("'Locked_"+string(lock)+"' = ? OR attribute_not_exists(Locked)", false).
+		If("'Locked_"+string(lock)+"' = ? OR attribute_not_exists(Locked_"+string(lock)+")", false).
 		Run()
 }
 
@@ -95,12 +95,12 @@ func saveUser(user User) error {
 	return table.Put(user).Run()
 }
 
-func getUserByFilecoinAddress(filecoinAddr string) (User, error) {
+func getUserByVerifiedFilecoinAddress(filecoinAddr string) (User, error) {
 	table := dynamoTable("filecoin-verified-addresses")
 
 	var users []User
 	err := table.Scan().
-		Filter("FilecoinAddress = ?", filecoinAddr).
+		Filter("VerifiedFilecoinAddress = ?", filecoinAddr).
 		Limit(1).
 		All(&users)
 	if err != nil {

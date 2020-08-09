@@ -231,7 +231,7 @@ func serveVerifyAccount(c *gin.Context) {
 			// This is already logged in lotusWaitMessageResult
 			return
 		}
-		user.FilecoinAddress = body.TargetAddr
+		user.VerifiedFilecoinAddress = body.TargetAddr
 		if ok {
 			user.MostRecentAllocation = time.Now()
 		}
@@ -282,7 +282,7 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 		dcap = big.NewInt(0)
 	}
 
-	user, err := getUserByFilecoinAddress(targetAddr)
+	user, err := getUserByVerifiedFilecoinAddress(targetAddr)
 	if err != nil {
 		// no-op
 	}
@@ -375,14 +375,20 @@ func serveFaucet(c *gin.Context) {
 
 	// returns an ID address if its a miner address, otherwise an empty address
 	minerAddr, err := lotusGetMinerAddr(ctx, targetAddr)
-	if err != nil {
+	if err != nil && errors.Cause(err) != ErrNotMiner {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	if isMinerAddr(minerAddr) {
+	// ensure the non-miner hasnt already gotten their non-miner faucet tx
+	if errors.Cause(err) == ErrNotMiner && user.ReceivedNonMinerFaucetGrant {
+		c.JSON(http.StatusForbidden, gin.H{"error": "non-miners can only use the faucet once"})
+		return
+	}
+
+	if !minerAddr.Empty() {
 		targetAddr = minerAddr
-		if user.MostRecentFaucetGrant.Add(env.FaucetRateLimit).After(time.Now()) {
+		if user.MostRecentMinerFaucetGrant.Add(env.FaucetRateLimit).After(time.Now()) {
 			c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("you may only use the faucet once every %v hours", env.FaucetRateLimit.Hours())})
 			return
 		}
@@ -393,7 +399,7 @@ func serveFaucet(c *gin.Context) {
 			return
 		}
 
-		daysSinceLastGrant := uint64(time.Now().Sub(user.MostRecentFaucetGrant).Hours()) / 24
+		daysSinceLastGrant := uint64(time.Now().Sub(user.MostRecentMinerFaucetGrant).Hours()) / 24
 		owed = types.BigDiv(
 			types.BigMul(types.BigInt(env.FaucetBaseRate), types.BigInt(minerPower.MinerPower.RawBytePower)),
 			types.NewInt(daysSinceLastGrant),
@@ -401,12 +407,6 @@ func serveFaucet(c *gin.Context) {
 		if types.BigCmp(owed, types.NewInt(2000)) < 0 {
 			owed = types.NewInt(2000)
 		}
-	} else {
-		// ensure the non-miner hasnt already gotten their non-miner faucet tx
-		// if user.ReceivedNonMinerFaucetGrant {
-		//	c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("you may only use the faucet once every %v hours", env.FaucetRateLimit.Hours())})
-		//	return
-		// }
 	}
 
 	owedFIL := types.FIL(types.BigDiv(owed, types.NewInt(build.FilecoinPrecision)))
@@ -440,23 +440,18 @@ func serveFaucet(c *gin.Context) {
 		if err != nil {
 			// This is already logged in lotusWaitMessageResult
 			return
+		} else if !ok {
+			// Transaction failed
+			log.Println("ERROR: faucet transaction failed")
+			return
 		}
 
-		if ok {
-			user.MostRecentFaucetGrant = time.Now()
+		if !minerAddr.Empty() {
+			user.MostRecentMinerFaucetGrant = time.Now()
+		} else {
+			user.ReceivedNonMinerFaucetGrant = true
 		}
 
-		/*
-
-			CONCEPT:
-
-			if ok && isMinerAddr(minerAddr) {
-				user.MostRecentFaucetGrant = time.Now()
-			} else if ok && !isMinerAddr(minerAddr) {
-				user.ReceivedNonMinerFaucetGrant = true
-			}
-
-		*/
 		err = saveUser(user)
 		if err != nil {
 			log.Println("error saving user:", err)

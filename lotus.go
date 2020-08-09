@@ -332,7 +332,21 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	return sm.Cid(), nil
 }
 
-func lotusGetMinerAddr(ctx context.Context, addr address.Address) (address.Address, error) {
+var ErrNotMiner = errors.New("not a miner")
+
+func lotusTranslateError(err *error) {
+	if *err == nil {
+		return
+	}
+	if strings.Contains((*err).Error(), "not found") {
+		*err = ErrNotMiner
+	}
+}
+
+func lotusGetMinerAddr(ctx context.Context, addr address.Address) (_ address.Address, err error) {
+	defer withStack(&err)
+	defer lotusTranslateError(&err)
+
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return address.Undef, err
@@ -344,7 +358,7 @@ func lotusGetMinerAddr(ctx context.Context, addr address.Address) (address.Addre
 		// just assume this is not a miner
 		idAddr, err := api.StateLookupID(ctx, addr, types.EmptyTSK)
 		if err != nil {
-			return address.Undef, nil
+			return address.Undef, ErrNotMiner
 		}
 
 		return lotusGetMinerAddr(ctx, idAddr)
@@ -353,22 +367,20 @@ func lotusGetMinerAddr(ctx context.Context, addr address.Address) (address.Addre
 	actor, err := api.StateGetActor(ctx, addr, types.EmptyTSK)
 	if err != nil {
 		return address.Undef, err
+	} else if actor.Code != builtin.StorageMinerActorCodeID {
+		return address.Undef, nil
 	}
-
-	// address is a miner
-	if actor.Code == builtin.StorageMinerActorCodeID {
-		return addr, nil
-	}
-
-	return address.Undef, nil
-}
-
-func isMinerAddr(address.Address) bool {
-	return address.Undef.Empty()
+	return addr, nil
 }
 
 func lotusGetMinerPower(ctx context.Context, addr address.Address) (_ *api.MinerPower, err error) {
 	defer withStack(&err)
+	defer lotusTranslateError(&err)
+
+	minerAddr, err := lotusGetMinerAddr(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
 
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
@@ -376,12 +388,7 @@ func lotusGetMinerPower(ctx context.Context, addr address.Address) (_ *api.Miner
 	}
 	defer closer()
 
-	idAddr, err := api.StateLookupID(ctx, addr, types.EmptyTSK)
-	if err != nil {
-		return nil, err
-	}
-
-	power, err := api.StateMinerPower(ctx, idAddr, types.EmptyTSK)
+	power, err := api.StateMinerPower(ctx, minerAddr, types.EmptyTSK)
 	if err != nil {
 		return nil, err
 	}
