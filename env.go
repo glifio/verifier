@@ -16,6 +16,7 @@ type Env struct {
 	AWSRegion                 string          `env:"AWS_REGION" envDefault:"us-east-1"`
 	AWSAccessKey              string          `env:"AWS_ACCESS_KEY,required"`
 	AWSSecretKey              string          `env:"AWS_SECRET_KEY,required"`
+	DynamodbTableName         string          `env:"DYNAMODB_TABLE_NAME,required"`
 	LotusAPIDialAddr          string          `env:"LOTUS_API_DIAL_ADDR,required"`
 	LotusAPIToken             string          `env:"LOTUS_API_TOKEN,required"`
 	LotusVerifierAddr         address.Address `env:"LOTUS_VERIFIER_ADDR,required"`

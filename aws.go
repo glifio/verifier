@@ -47,11 +47,11 @@ func dynamoTable(name string) dynamo.Table {
 		WithRegion(env.AWSRegion).
 		WithCredentials(awscreds.NewStaticCredentials(env.AWSAccessKey, env.AWSSecretKey, ""))
 
-	return dynamo.New(awssession.New(), awsConfig).Table("filecoin-verified-addresses")
+	return dynamo.New(awssession.New(), awsConfig).Table(env.DynamodbTableName)
 }
 
 func getUserByID(userID string) (User, error) {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamodbTableName)
 
 	var user User
 	err := table.Get("ID", userID).One(&user)
@@ -59,7 +59,7 @@ func getUserByID(userID string) (User, error) {
 }
 
 func getUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamodbTableName)
 
 	var users []User
 	err := table.Scan().
@@ -81,7 +81,7 @@ func getUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
 }
 
 func lockUser(userID string, lock UserLock) error {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamodbTableName)
 	return table.Update("ID", userID).
 		Set("Locked_"+string(lock), true).
 		If("'Locked_"+string(lock)+"' = ? OR attribute_not_exists(Locked_"+string(lock)+")", false).
@@ -89,7 +89,7 @@ func lockUser(userID string, lock UserLock) error {
 }
 
 func unlockUser(userID string, lock UserLock) error {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamodbTableName)
 	return table.Update("ID", userID).
 		Set("Locked_"+string(lock), false).
 		If("'Locked_"+string(lock)+"' = ?", true).
@@ -97,12 +97,12 @@ func unlockUser(userID string, lock UserLock) error {
 }
 
 func saveUser(user User) error {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamodbTableName)
 	return table.Put(user).Run()
 }
 
 func getUserByVerifiedFilecoinAddress(filecoinAddr string) (User, error) {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamodbTableName)
 
 	var users []User
 	err := table.Scan().
