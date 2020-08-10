@@ -10,15 +10,17 @@ import (
 	awssession "github.com/aws/aws-sdk-go/aws/session"
 	"github.com/google/uuid"
 	"github.com/guregu/dynamo"
+	"github.com/ipfs/go-cid"
 )
 
 type User struct {
-	ID                          string
-	Accounts                    map[string]AccountData
-	MostRecentAllocation        time.Time
-	MostRecentMinerFaucetGrant  time.Time
-	ReceivedNonMinerFaucetGrant bool
-	VerifiedFilecoinAddress     string
+	ID                            string
+	Accounts                      map[string]AccountData
+	MostRecentAllocation          time.Time
+	MostRecentMinerFaucetGrant    time.Time
+	MostRecentMinerFaucetGrantCid cid.Cid
+	ReceivedNonMinerFaucetGrant   bool
+	VerifiedFilecoinAddress       string
 }
 
 type AccountData struct {
@@ -34,6 +36,10 @@ func (user User) HasAccountOlderThan(threshold time.Duration) bool {
 		}
 	}
 	return false
+}
+
+func (user User) HasRequestedFromFaucetAsMiner() bool {
+	return user.MostRecentMinerFaucetGrantCid != cid.Cid{}
 }
 
 func dynamoTable(name string) dynamo.Table {

@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -372,7 +371,7 @@ func lotusGetMinerAddr(ctx context.Context, addr address.Address) (_ address.Add
 	return addr, nil
 }
 
-func lotusGetMinerPower(ctx context.Context, addr address.Address) (_ *api.MinerPower, err error) {
+func lotusGetMinerPower(ctx context.Context, addr address.Address, tipsetKey types.TipSetKey) (_ *api.MinerPower, err error) {
 	defer withStack(&err)
 	defer lotusTranslateError(&err)
 
@@ -387,7 +386,7 @@ func lotusGetMinerPower(ctx context.Context, addr address.Address) (_ *api.Miner
 	}
 	defer closer()
 
-	power, err := api.StateMinerPower(ctx, minerAddr, types.EmptyTSK)
+	power, err := api.StateMinerPower(ctx, minerAddr, tipsetKey)
 	if err != nil {
 		return nil, err
 	}
