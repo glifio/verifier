@@ -173,7 +173,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Ensure that the user's account is old enough
-	minAccountAge := time.Duration(env.MinAccountAgeDays) * 24 * time.Hour
+	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
 	if !user.HasAccountOlderThan(minAccountAge) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
@@ -365,7 +365,7 @@ func serveFaucet(c *gin.Context) {
 	}
 
 	// No account less than a week old is allowed any FIL
-	if !user.HasAccountOlderThan(24 * time.Hour) {
+	if !user.HasAccountOlderThan(env.FaucetMinAccountAge) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}

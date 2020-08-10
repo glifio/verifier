@@ -29,7 +29,7 @@ type AccountData struct {
 
 func (user User) HasAccountOlderThan(threshold time.Duration) bool {
 	for _, account := range user.Accounts {
-		if time.Now().Sub(account.CreatedAt).Hours() >= (time.Duration(env.MinAccountAgeDays) * 24 * time.Hour).Hours() {
+		if time.Now().Sub(account.CreatedAt).Hours() >= threshold.Hours() {
 			return true
 		}
 	}

@@ -285,7 +285,6 @@ func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Mes
 	if err != nil {
 		return 0, err
 	}
-	fmt.Println("Gas limit ~>", gasLimit)
 	return gasLimit, nil
 }
 
