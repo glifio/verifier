@@ -31,6 +31,14 @@ func main() {
 		fmt.Println("  -", addr.String())
 	}
 
+	add1, _ := address.NewFromString("t01285")
+	add2, _ := address.NewFromString("t01766")
+	add3, _ := address.NewFromString("t01783")
+
+	testMinerAmountToSend(add1)
+	testMinerAmountToSend(add2)
+	testMinerAmountToSend(add3)
+
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -430,12 +438,15 @@ func serveFaucet(c *gin.Context) {
 					return
 				}
 
-				powerDiff := types.BigSub(types.BigInt(prevPower.MinerPower.RawBytePower), types.BigInt(currentPower.MinerPower.RawBytePower))
-
+				powerDiff := types.BigSub(types.BigInt(currentPower.MinerPower.RawBytePower), types.BigInt(prevPower.MinerPower.RawBytePower))
 				if types.BigCmp(powerDiff, types.NewInt(0)) > 0 {
 					powerDiffGiB := types.BigDiv(powerDiff, types.NewInt(1073741824))
-					owedInt := types.BigDiv(powerDiffGiB, types.NewInt(2))
-					owed = types.FIL(owedInt)
+					owedString := types.BigDiv(powerDiffGiB, types.NewInt(2)).String() + "fil"
+					owed, err = types.ParseFIL(owedString)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						return
+					}
 				}
 
 				// apply a lower bound
@@ -526,4 +537,38 @@ func getUserIDFromJWT(c *gin.Context) (string, error) {
 		return "", err
 	}
 	return userID, nil
+}
+
+func testMinerAmountToSend(minerAddr address.Address) types.FIL {
+	fmt.Println("calculating for miner addr: ", minerAddr.String())
+	tipsetKey := lotusGetYesterdayTipsetKey()
+	prevPower, err := lotusGetMinerPower(context.TODO(), minerAddr, tipsetKey)
+	if err != nil {
+		return types.FIL(types.NewInt(0))
+	}
+
+	fmt.Println("prev power", prevPower.MinerPower.RawBytePower)
+	owed := env.FaucetBaseRate
+
+	currentPower, err := lotusGetMinerPower(context.TODO(), minerAddr, types.EmptyTSK)
+	if err != nil {
+		return types.FIL(types.NewInt(0))
+	}
+
+	powerDiff := types.BigSub(types.BigInt(currentPower.MinerPower.RawBytePower), types.BigInt(prevPower.MinerPower.RawBytePower))
+	fmt.Println("POWER DIFF", powerDiff)
+	if types.BigCmp(powerDiff, types.NewInt(0)) > 0 {
+		powerDiffGiB := types.BigDiv(powerDiff, types.NewInt(1073741824))
+		fmt.Println("power diff in GiB", powerDiffGiB)
+		owedString := types.BigDiv(powerDiffGiB, types.NewInt(2)).String()+"fil"
+		owed, _ = types.ParseFIL(owedString)
+		fmt.Println("OWED", owed)
+	}
+	fmt.Println("____________________________")
+
+	if types.BigCmp(types.BigInt(owed), types.BigInt(env.FaucetMinGrant)) < 0 {
+		owed = env.FaucetMinGrant
+	}
+
+	return owed
 }
