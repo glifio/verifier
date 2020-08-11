@@ -10,6 +10,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
+	"github.com/ipfs/go-cid"
 	// "github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/types"
 	big "github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -403,7 +404,13 @@ func serveFaucet(c *gin.Context) {
 
 			targetAddr = minerAddr
 
-			receipt, err := api.StateSearchMsg(ctx, user.MostRecentMinerFaucetGrantCid)
+			decodedCid, err := cid.Decode(user.MostRecentMinerFaucetGrantCid)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			receipt, err := api.StateSearchMsg(ctx, decodedCid)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -478,7 +485,7 @@ func serveFaucet(c *gin.Context) {
 
 		if !minerAddr.Empty() {
 			user.MostRecentMinerFaucetGrant = time.Now()
-			user.MostRecentMinerFaucetGrantCid = cid
+			user.MostRecentMinerFaucetGrantCid = cid.String()
 		} else {
 			user.ReceivedNonMinerFaucetGrant = true
 		}

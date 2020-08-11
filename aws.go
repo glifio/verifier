@@ -10,7 +10,6 @@ import (
 	awssession "github.com/aws/aws-sdk-go/aws/session"
 	"github.com/google/uuid"
 	"github.com/guregu/dynamo"
-	"github.com/ipfs/go-cid"
 )
 
 type User struct {
@@ -18,7 +17,7 @@ type User struct {
 	Accounts                      map[string]AccountData
 	MostRecentAllocation          time.Time
 	MostRecentMinerFaucetGrant    time.Time
-	MostRecentMinerFaucetGrantCid cid.Cid
+	MostRecentMinerFaucetGrantCid string
 	ReceivedNonMinerFaucetGrant   bool
 	VerifiedFilecoinAddress       string
 }
@@ -39,7 +38,7 @@ func (user User) HasAccountOlderThan(threshold time.Duration) bool {
 }
 
 func (user User) HasRequestedFromFaucetAsMiner() bool {
-	return user.MostRecentMinerFaucetGrantCid != cid.Cid{}
+	return user.MostRecentMinerFaucetGrantCid != ""
 }
 
 func dynamoTable(name string) dynamo.Table {
@@ -47,11 +46,11 @@ func dynamoTable(name string) dynamo.Table {
 		WithRegion(env.AWSRegion).
 		WithCredentials(awscreds.NewStaticCredentials(env.AWSAccessKey, env.AWSSecretKey, ""))
 
-	return dynamo.New(awssession.New(), awsConfig).Table("filecoin-verified-addresses")
+	return dynamo.New(awssession.New(), awsConfig).Table(env.DynamoDBTableName)
 }
 
 func getUserByID(userID string) (User, error) {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamoDBTableName)
 
 	var user User
 	err := table.Get("ID", userID).One(&user)
@@ -59,7 +58,7 @@ func getUserByID(userID string) (User, error) {
 }
 
 func getUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamoDBTableName)
 
 	var users []User
 	err := table.Scan().
@@ -81,7 +80,7 @@ func getUserWithProviderUniqueID(providerName, uniqueID string) (User, error) {
 }
 
 func lockUser(userID string, lock UserLock) error {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamoDBTableName)
 	return table.Update("ID", userID).
 		Set("Locked_"+string(lock), true).
 		If("'Locked_"+string(lock)+"' = ? OR attribute_not_exists(Locked_"+string(lock)+")", false).
@@ -89,7 +88,7 @@ func lockUser(userID string, lock UserLock) error {
 }
 
 func unlockUser(userID string, lock UserLock) error {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamoDBTableName)
 	return table.Update("ID", userID).
 		Set("Locked_"+string(lock), false).
 		If("'Locked_"+string(lock)+"' = ?", true).
@@ -97,12 +96,12 @@ func unlockUser(userID string, lock UserLock) error {
 }
 
 func saveUser(user User) error {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamoDBTableName)
 	return table.Put(user).Run()
 }
 
 func getUserByVerifiedFilecoinAddress(filecoinAddr string) (User, error) {
-	table := dynamoTable("filecoin-verified-addresses")
+	table := dynamoTable(env.DynamoDBTableName)
 
 	var users []User
 	err := table.Scan().
