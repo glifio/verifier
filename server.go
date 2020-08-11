@@ -49,13 +49,13 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	router.POST("/oauth/:provider", serveOauth)
+	router.POST("/oauth/:provider", serveOauth, handleError("/oauth"))
 	router.POST("/verify", serveVerifyAccount)
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
 	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
-	router.POST("/faucet/:target_addr", serveFaucet)
+	router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
 
 	router.Run(":" + env.Port)
 }
@@ -74,11 +74,31 @@ var (
 	UserLock_Faucet   UserLock = "Faucet"
 )
 
+func setError(c *gin.Context, code int, err error) {
+	c.Set("error", err)
+	c.Set("code", code)
+}
+
+func handleError(route string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		err, hasErr := c.Get("error")
+		code, hasCode := c.Get("code")
+		if hasErr {
+			if hasCode {
+				c.JSON(code.(int), gin.H{"error": err.(error).Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.(error).Error()})
+			}
+			log.Printf("%v error: %+v", route, err)
+		}
+	}
+}
+
 func serveOauth(c *gin.Context) {
 	providerName := c.Param("provider")
 	provider, exists := oauthProviders[providerName]
 	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": ErrUnsupportedProvider.Error()})
+		setError(c, http.StatusBadRequest, errors.Wrapf(ErrUnsupportedProvider, "provider=%v", providerName))
 		return
 	}
 
@@ -89,28 +109,28 @@ func serveOauth(c *gin.Context) {
 
 	var body Request
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		setError(c, http.StatusBadRequest, errors.Wrap(err, "binding request JSON"))
 		return
 	}
 
 	// Exchange the `code` for an `access_token`
 	token, err := OAuthExchangeCodeForToken(provider, body.Code, body.State)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		setError(c, http.StatusInternalServerError, errors.Wrap(err, "exchanging code for token"))
 		return
 	}
 
 	// Fetch the user's profile
 	accountData, err := provider.FetchAccountData(token)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		setError(c, http.StatusInternalServerError, errors.Wrap(err, "fetching account data"))
 		return
 	}
 
 	// Update user record in Dynamo
 	user, err := getUserWithProviderUniqueID(providerName, accountData.UniqueID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "fetching DynamoDB user: " + err.Error()})
+		setError(c, http.StatusInternalServerError, errors.Wrap(err, "fetching DynamoDB user"))
 		return
 	}
 
@@ -118,7 +138,7 @@ func serveOauth(c *gin.Context) {
 
 	err = saveUser(user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "saving DynamoDB user: " + err.Error()})
+		setError(c, http.StatusInternalServerError, errors.Wrap(err, "saving DynamoDB user"))
 		return
 	}
 
@@ -130,7 +150,7 @@ func serveOauth(c *gin.Context) {
 	// Sign and get the complete encoded token as a string using the secret
 	jwtTokenString, err := jwtToken.SignedString([]byte(env.JWTSecret))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "generating JWT: " + err.Error()})
+		setError(c, http.StatusInternalServerError, errors.Wrap(err, "generating JWT"))
 		return
 	}
 
@@ -330,7 +350,7 @@ func serveFaucet(c *gin.Context) {
 
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		setError(c, http.StatusInternalServerError, errors.Wrap(err, "getting full node API"))
 		return
 	}
 	defer closer()
@@ -339,7 +359,7 @@ func serveFaucet(c *gin.Context) {
 	if faucetAddr == (address.Address{}) {
 		faucetAddr, err = api.WalletDefaultAddress(ctx)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			setError(c, http.StatusInternalServerError, errors.Wrap(err, "getting wallet default address"))
 			return
 		}
 	}
@@ -381,7 +401,7 @@ func serveFaucet(c *gin.Context) {
 	// returns an ID address if its a miner address, otherwise an empty address
 	minerAddr, err := lotusGetMinerAddr(ctx, targetAddr)
 	if err != nil && errors.Cause(err) != ErrNotMiner {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner address for %v", targetAddr))
 		return
 	}
 
@@ -416,25 +436,26 @@ func serveFaucet(c *gin.Context) {
 			} else {
 				decodedCid, err := cid.Decode(user.MostRecentFaucetGrantCid)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					setError(c, http.StatusInternalServerError, errors.Wrapf(err, "decoding cid %v", user.MostRecentFaucetGrantCid))
 					return
 				}
 
 				receipt, err := api.StateSearchMsg(ctx, decodedCid)
 				if err != nil {
+					setError(c, http.StatusInternalServerError, errors.Wrapf(err, "searching for msg %v", decodedCid))
 					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 					return
 				}
 
 				prevPower, err := lotusGetMinerPower(ctx, minerAddr, receipt.TipSet)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner power for %v (tipset %v)", minerAddr, receipt.TipSet))
 					return
 				}
 
 				currentPower, err := lotusGetMinerPower(ctx, minerAddr, types.EmptyTSK)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner power for %v (empty tipset)", minerAddr))
 					return
 				}
 
@@ -444,7 +465,7 @@ func serveFaucet(c *gin.Context) {
 					owedString := types.BigDiv(powerDiffGiB, types.NewInt(2)).String() + "fil"
 					owed, err = types.ParseFIL(owedString)
 					if err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						setError(c, http.StatusInternalServerError, errors.Wrapf(err, "parsing FIL string '%v'", owedString))
 						return
 					}
 				}
@@ -461,7 +482,7 @@ func serveFaucet(c *gin.Context) {
 
 	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, owed)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v FIL from %v to %v", owed, faucetAddr, targetAddr))
 		return
 	}
 
