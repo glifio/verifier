@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/filecoin-project/go-address"
 	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -13,13 +14,14 @@ import (
 )
 
 type User struct {
-	ID                            string
-	Accounts                      map[string]AccountData
-	MostRecentAllocation          time.Time
-	MostRecentMinerFaucetGrant    time.Time
-	MostRecentMinerFaucetGrantCid string
-	ReceivedNonMinerFaucetGrant   bool
-	VerifiedFilecoinAddress       string
+	ID                          string
+	Accounts                    map[string]AccountData
+	MostRecentAllocation        time.Time
+	MostRecentMinerFaucetGrant  time.Time
+	MostRecentFaucetGrantCid    string
+	MostRecentFaucetAddress     string
+	ReceivedNonMinerFaucetGrant bool
+	VerifiedFilecoinAddress     string
 }
 
 type AccountData struct {
@@ -38,7 +40,11 @@ func (user User) HasAccountOlderThan(threshold time.Duration) bool {
 }
 
 func (user User) HasRequestedFromFaucetAsMiner() bool {
-	return user.MostRecentMinerFaucetGrantCid != ""
+	return !user.MostRecentMinerFaucetGrant.IsZero()
+}
+
+func (user User) ChangedMinerAddress(newMinerAddress address.Address) bool {
+	return user.MostRecentFaucetAddress != newMinerAddress.String()
 }
 
 func dynamoTable(name string) dynamo.Table {

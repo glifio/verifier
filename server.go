@@ -10,12 +10,11 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
-	"github.com/ipfs/go-cid"
-	// "github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/types"
 	big "github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/ipfs/go-cid"
 	"github.com/pkg/errors"
 )
 
@@ -394,7 +393,7 @@ func serveFaucet(c *gin.Context) {
 	//    - Get the currentPower of the miner
 	//    - subtract prevPower - currentPower to get the powerDiff
 	//    - grant size = powerDiff (in GiB) / 2
-	var owed types.FIL
+	owed := env.FaucetBaseRate
 	if isMiner {
 		if user.HasRequestedFromFaucetAsMiner() {
 			if user.MostRecentMinerFaucetGrant.Add(env.FaucetRateLimit).After(time.Now()) {
@@ -404,49 +403,50 @@ func serveFaucet(c *gin.Context) {
 
 			targetAddr = minerAddr
 
-			decodedCid, err := cid.Decode(user.MostRecentMinerFaucetGrantCid)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
+			if user.ChangedMinerAddress(targetAddr) {
+				owed = env.FaucetBaseRate
+			} else {
+				decodedCid, err := cid.Decode(user.MostRecentFaucetGrantCid)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
 
-			receipt, err := api.StateSearchMsg(ctx, decodedCid)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
+				receipt, err := api.StateSearchMsg(ctx, decodedCid)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
 
-			prevPower, err := lotusGetMinerPower(ctx, minerAddr, receipt.TipSet)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
+				prevPower, err := lotusGetMinerPower(ctx, minerAddr, receipt.TipSet)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
 
-			currentPower, err := lotusGetMinerPower(ctx, minerAddr, types.EmptyTSK)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
+				currentPower, err := lotusGetMinerPower(ctx, minerAddr, types.EmptyTSK)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
 
-			powerDiff := types.BigSub(types.BigInt(prevPower.MinerPower.RawBytePower), types.BigInt(currentPower.MinerPower.RawBytePower))
-			if types.BigCmp(powerDiff, types.NewInt(0)) > 0 {
-				powerDiffGiB := types.BigDiv(powerDiff, types.NewInt(1073741824))
-				owedInt := types.BigDiv(powerDiffGiB, types.NewInt(2))
-				owed = types.FIL(owedInt)
-			}
-			// apply a lower bound
-			if types.BigCmp(types.BigInt(owed), types.BigInt(env.FaucetMinGrant)) < 0 {
-				owed = env.FaucetMinGrant
-			}
+				powerDiff := types.BigSub(types.BigInt(prevPower.MinerPower.RawBytePower), types.BigInt(currentPower.MinerPower.RawBytePower))
 
+				if types.BigCmp(powerDiff, types.NewInt(0)) > 0 {
+					powerDiffGiB := types.BigDiv(powerDiff, types.NewInt(1073741824))
+					owedInt := types.BigDiv(powerDiffGiB, types.NewInt(2))
+					owed = types.FIL(owedInt)
+				}
+
+				// apply a lower bound
+				if types.BigCmp(types.BigInt(owed), types.BigInt(env.FaucetMinGrant)) < 0 {
+					owed = env.FaucetMinGrant
+				}
+			}
 		} else {
 			owed = env.FaucetBaseRate
 		}
-	} else {
-		owed = env.FaucetBaseRate
 	}
-
-	// owedFIL := types.FIL(types.BigDiv(owed, types.NewInt(build.FilecoinPrecision)))
 
 	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, owed)
 	if err != nil {
@@ -483,9 +483,10 @@ func serveFaucet(c *gin.Context) {
 			return
 		}
 
+		user.MostRecentFaucetGrantCid = cid.String()
+		user.MostRecentFaucetAddress = targetAddr.String()
 		if !minerAddr.Empty() {
 			user.MostRecentMinerFaucetGrant = time.Now()
-			user.MostRecentMinerFaucetGrantCid = cid.String()
 		} else {
 			user.ReceivedNonMinerFaucetGrant = true
 		}
