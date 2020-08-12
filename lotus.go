@@ -284,7 +284,6 @@ func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Mes
 	if err != nil {
 		return 0, err
 	}
-
 	return gasLimit, nil
 }
 
@@ -293,7 +292,6 @@ func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, address addres
 	if err != nil {
 		return types.NewInt(0), err
 	}
-
 	return gasPrice, nil
 }
 
@@ -330,6 +328,70 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 		return cid.Cid{}, err
 	}
 	return sm.Cid(), nil
+}
+
+var ErrNotMiner = errors.New("not a miner")
+
+func lotusTranslateError(err *error) {
+	if *err == nil {
+		return
+	}
+	if strings.Contains((*err).Error(), "not found") {
+		*err = ErrNotMiner
+	}
+}
+
+func lotusGetMinerAddr(ctx context.Context, addr address.Address) (_ address.Address, err error) {
+	defer withStack(&err)
+	defer lotusTranslateError(&err)
+
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return address.Undef, err
+	}
+	defer closer()
+
+	if addr.Protocol() != address.ID {
+		// if this call errs, we're not gonna check explicit err messages
+		// just assume this is not a miner
+		idAddr, err := api.StateLookupID(ctx, addr, types.EmptyTSK)
+		if err != nil {
+			return address.Undef, ErrNotMiner
+		}
+
+		return lotusGetMinerAddr(ctx, idAddr)
+	}
+
+	actor, err := api.StateGetActor(ctx, addr, types.EmptyTSK)
+	if err != nil {
+		return address.Undef, err
+	} else if actor.Code != builtin.StorageMinerActorCodeID {
+		return address.Undef, nil
+	}
+	return addr, nil
+}
+
+func lotusGetMinerPower(ctx context.Context, addr address.Address, tipsetKey types.TipSetKey) (_ *api.MinerPower, err error) {
+	defer withStack(&err)
+	defer lotusTranslateError(&err)
+
+	minerAddr, err := lotusGetMinerAddr(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer closer()
+
+	power, err := api.StateMinerPower(ctx, minerAddr, tipsetKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return power, nil
 }
 
 func lotusWaitMessageResult(ctx context.Context, cid cid.Cid) (bool, error) {
