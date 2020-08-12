@@ -23,6 +23,8 @@ docker run -it \
     openworklabs/verifier
 ```
 
+**NOTE** - please look at `env.go` for the most up to date environment variable configurations.
+
 Local dev:
 
 Load environment variables (been using direnv) so: with a `.nvmrc` and then `direnv allow`

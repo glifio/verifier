@@ -28,7 +28,7 @@ type Env struct {
 	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
 	FaucetBaseRate            types.FIL       `env:"FAUCET_BASE_RATE" envDefault:"400fil"`
 	FaucetMinGrant            types.FIL       `env:"FAUCET_MIN_GRANT" envDefault:"2000fil"`
-	FaucetMinAccountAge       time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"24h"`
+	FaucetMinAccountAge       time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"168h"`
 	GasMultiple               uint64          `env:"GAS_MULTIPLE" envDefault:"2"`
 }
 

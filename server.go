@@ -19,7 +19,12 @@ import (
 )
 
 func main() {
-	fmt.Println("Lotus node:", env.LotusAPIDialAddr)
+	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
+	fmt.Println("Time before miner can reup: ", env.FaucetRateLimit)
+	fmt.Println("Base rate: ", env.FaucetBaseRate)
+	fmt.Println("Miner lower bound rate: ", env.FaucetMinGrant)
+	fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAge)
+	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
 
 	// runTest()
 
@@ -466,7 +471,7 @@ func serveFaucet(c *gin.Context) {
 
 	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, owed)
 	if err != nil {
-		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v FIL from %v to %v", owed, faucetAddr, targetAddr))
+		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v from %v to %v", owed, faucetAddr, targetAddr))
 		return
 	}
 
@@ -565,7 +570,7 @@ func testMinerAmountToSend(minerAddr address.Address) types.FIL {
 	if types.BigCmp(powerDiff, types.NewInt(0)) > 0 {
 		powerDiffGiB := types.BigDiv(powerDiff, types.NewInt(1073741824))
 		fmt.Println("power diff in GiB", powerDiffGiB)
-		owedString := types.BigDiv(powerDiffGiB, types.NewInt(2)).String()+"fil"
+		owedString := types.BigDiv(powerDiffGiB, types.NewInt(2)).String() + "fil"
 		owed, _ = types.ParseFIL(owedString)
 		fmt.Println("OWED", owed)
 	}
