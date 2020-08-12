@@ -21,23 +21,7 @@ import (
 func main() {
 	fmt.Println("Lotus node:", env.LotusAPIDialAddr)
 
-	addrs, err := lotusListMiners()
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Miners:")
-	for _, addr := range addrs {
-		fmt.Println("  -", addr.String())
-	}
-
-	add1, _ := address.NewFromString("t01285")
-	add2, _ := address.NewFromString("t01766")
-	add3, _ := address.NewFromString("t01783")
-
-	testMinerAmountToSend(add1)
-	testMinerAmountToSend(add2)
-	testMinerAmountToSend(add3)
+	// runTest()
 
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
