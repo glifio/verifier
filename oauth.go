@@ -76,6 +76,8 @@ func OAuthExchangeCodeForToken(provider OAuthProvider, code, state string) (stri
 		log.Println("[error in Github oauth request 4] code:", code)
 		log.Println("[error in Github oauth request 4] state:", state)
 		return "", err
+	} else if tokenResp.AccessToken == "" {
+		log.Println("NIGHTMARE NIGHTMARE NIGHTMARE, TOKEN IS EMPTY FOR ABSOLUTELY NO REASON!  err =", err, "and rawResponse =", rawResp.String())
 	}
 	return tokenResp.AccessToken, nil
 }
