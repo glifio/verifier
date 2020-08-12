@@ -62,7 +62,7 @@ func githubMakeAuthorizedRequest(url, token string) (io.ReadCloser, error) {
 	if !strings.Contains(contentType, "application/json") {
 		return nil, errors.Errorf("bad Content-Type in Github response: '%v'", contentType)
 	} else if resp.StatusCode != 200 {
-		return nil, errors.Errorf("bad response from Github API: %v", resp.Status)
+		return nil, errors.Errorf("bad response from Github API: code %v (url='%v' token='%v')", resp.Status, url, token)
 	}
 	return resp.Body, nil
 }

@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 )
 
@@ -32,11 +34,18 @@ func OAuthExchangeCodeForToken(provider OAuthProvider, code, state string) (stri
 		State        string `json:"state"`
 	}{provider.ClientID, provider.ClientSecret, code, state})
 	if err != nil {
+		log.Println("[error in Github oauth request 1] provider:", provider)
+		log.Println("[error in Github oauth request 1] code:", code)
+		log.Println("[error in Github oauth request 1] state:", state)
 		return "", err
 	}
 
 	req, err := http.NewRequest("POST", provider.TokenEndpoint, buf)
 	if err != nil {
+		log.Println("[error in Github oauth request 2] request JSON:", buf.String())
+		log.Println("[error in Github oauth request 2] provider:", provider)
+		log.Println("[error in Github oauth request 2] code:", code)
+		log.Println("[error in Github oauth request 2] state:", state)
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -44,6 +53,10 @@ func OAuthExchangeCodeForToken(provider OAuthProvider, code, state string) (stri
 
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Println("[error in Github oauth request 3] request JSON:", buf.String())
+		log.Println("[error in Github oauth request 3] provider:", provider)
+		log.Println("[error in Github oauth request 3] code:", code)
+		log.Println("[error in Github oauth request 3] state:", state)
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -54,8 +67,14 @@ func OAuthExchangeCodeForToken(provider OAuthProvider, code, state string) (stri
 		Scope       string `json:"scope"`
 	}
 	var tokenResp Response
-	err = json.NewDecoder(resp.Body).Decode(&tokenResp)
+	rawResp := &bytes.Buffer{}
+	err = json.NewDecoder(io.TeeReader(resp.Body, rawResp)).Decode(&tokenResp)
 	if err != nil {
+		log.Println("[error in Github oauth request 4] request JSON:", buf.String())
+		log.Println("[error in Github oauth request 4] response JSON:", rawResp.String())
+		log.Println("[error in Github oauth request 4] provider:", provider)
+		log.Println("[error in Github oauth request 4] code:", code)
+		log.Println("[error in Github oauth request 4] state:", state)
 		return "", err
 	}
 	return tokenResp.AccessToken, nil
