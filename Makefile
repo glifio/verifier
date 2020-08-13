@@ -1,4 +1,5 @@
 all:
+	cd filecoin-ffi && make clean && cd ../
 	make build VERSION=$(VERSION)
 	make push
 
