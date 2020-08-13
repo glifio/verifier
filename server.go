@@ -21,6 +21,7 @@ import (
 func main() {
 	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
 	fmt.Println("Time before miner can reup: ", env.FaucetRateLimit)
+	fmt.Println("Time before verifiers can reup: ", env.VerifierRateLimit)
 	fmt.Println("Base rate: ", env.FaucetBaseRate)
 	fmt.Println("Miner lower bound rate: ", env.FaucetMinGrant)
 	fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAge)
@@ -197,7 +198,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Ensure that the user hasn't asked for more allocation too recently
-	if user.MostRecentAllocation.Add(30 * 24 * time.Hour).After(time.Now()) {
+	if user.MostRecentAllocation.Add(env.VerifierRateLimit * time.Hour).After(time.Now()) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
 		return
 	}
