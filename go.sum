@@ -360,6 +360,8 @@ github.com/filecoin-project/lotus v0.4.3-0.20200813135812-7fc15b70ec3e h1:emHWu4
 github.com/filecoin-project/lotus v0.4.3-0.20200813135812-7fc15b70ec3e/go.mod h1:jYiPVZ07oXarTZYW3KmGmZmwcr6hF47hbqyoaZONUMo=
 github.com/filecoin-project/lotus v0.4.3-0.20200813154204-5c0d86373e3b h1:k++j/kaol+EZtJNbzCJuwSGFnTMeVkmGNEWFZbOTL3g=
 github.com/filecoin-project/lotus v0.4.3-0.20200813154204-5c0d86373e3b/go.mod h1:jYiPVZ07oXarTZYW3KmGmZmwcr6hF47hbqyoaZONUMo=
+github.com/filecoin-project/lotus v0.4.3-0.20200813184922-6c1ecb4d1696 h1:/Fa4K2gGTt2ixBcKg3+CQEibV/PipTQp/c7qWixIvEE=
+github.com/filecoin-project/lotus v0.4.3-0.20200813184922-6c1ecb4d1696/go.mod h1:jYiPVZ07oXarTZYW3KmGmZmwcr6hF47hbqyoaZONUMo=
 github.com/filecoin-project/sector-storage v0.0.0-20200508203401-a74812ba12f3/go.mod h1:B+xzopr/oWZJz2hBL5Ekb7Obcum5ntmfbaAUlaaho28=
 github.com/filecoin-project/sector-storage v0.0.0-20200522011946-a59ca7536a95 h1:wNpbsUY11P7+3yBfHOXsH+tAyferf1BVSe5S+HRm+7s=
 github.com/filecoin-project/sector-storage v0.0.0-20200522011946-a59ca7536a95/go.mod h1:1UpuWCUC7XNfgyufyQQq+/40JSzhfGdgcwauK55C8gk=
