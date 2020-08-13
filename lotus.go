@@ -71,7 +71,7 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 	msg.GasLimit = gasLimit * int64(env.GasMultiple)
 	msg.GasPremium = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
 
-	smsg, err := api.MpoolPushMessage(ctx, msg)
+	smsg, err := api.MpoolPushMessage(ctx, msg, nil)
 	if err != nil {
 		return cid.Cid{}, err
 	}
@@ -288,7 +288,7 @@ func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Mes
 }
 
 func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, address address.Address, gasLimit int64) (types.BigInt, error) {
-	gasPrice, err := api.GasEsitmateGasPremium(ctx, 0, address, gasLimit, types.EmptyTSK)
+	gasPrice, err := api.GasEstimateGasPremium(ctx, 0, address, gasLimit, types.EmptyTSK)
 	if err != nil {
 		return types.NewInt(0), err
 	}
@@ -323,7 +323,7 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 	msg.GasLimit = gasLimit * int64(env.GasMultiple)
 	msg.GasPremium = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
 
-	sm, err := api.MpoolPushMessage(ctx, msg)
+	sm, err := api.MpoolPushMessage(ctx, msg, nil)
 	if err != nil {
 		return cid.Cid{}, err
 	}
@@ -369,6 +369,24 @@ func lotusGetMinerAddr(ctx context.Context, addr address.Address) (_ address.Add
 		return address.Undef, nil
 	}
 	return addr, nil
+}
+
+func lotusGetMinerWorker(ctx context.Context, maddr address.Address) (_ address.Address, err error) {
+	defer withStack(&err)
+	defer lotusTranslateError(&err)
+
+	api, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		return address.Undef, err
+	}
+	defer closer()
+
+	minerInfo, err := api.StateMinerInfo(ctx, maddr, types.EmptyTSK)
+	if err != nil {
+		return address.Undef, err
+	}
+
+	return minerInfo.Worker, nil
 }
 
 func lotusGetMinerPower(ctx context.Context, addr address.Address, tipsetKey types.TipSetKey) (_ *api.MinerPower, err error) {

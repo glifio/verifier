@@ -366,7 +366,7 @@ func serveFaucet(c *gin.Context) {
 	// Lock the user for the duration of this operation
 	err = lockUser(userID, UserLock_Faucet)
 	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": "your last transaction is still confirming"})
 		return
 	}
 	defer func() {
@@ -418,7 +418,13 @@ func serveFaucet(c *gin.Context) {
 				return
 			}
 
-			targetAddr = minerAddr
+			worker, err := lotusGetMinerWorker(ctx, minerAddr)
+			if err != nil {
+				setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner worker for %v", minerAddr))
+				return
+			}
+
+			targetAddr = worker
 
 			if user.ChangedMinerAddress(targetAddr) {
 				owed = env.FaucetBaseRate
@@ -479,12 +485,14 @@ func serveFaucet(c *gin.Context) {
 
 	// Respond to the HTTP request
 	type Response struct {
-		Cid  string `json:"cid"`
-		Sent string `json:"sent"`
+		Cid     string `json:"cid"`
+		Sent    string `json:"sent"`
+		Address string `json:"toAddress"`
 	}
 	c.JSON(http.StatusOK, Response{
-		Cid:  cid.String(),
-		Sent: owed.String(),
+		Cid:     cid.String(),
+		Sent:    owed.String(),
+		Address: targetAddr.String(),
 	})
 
 	go func() {
