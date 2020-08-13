@@ -78,6 +78,7 @@ func OAuthExchangeCodeForToken(provider OAuthProvider, code, state string) (stri
 		return "", err
 	} else if tokenResp.AccessToken == "" {
 		log.Println("NIGHTMARE NIGHTMARE NIGHTMARE, TOKEN IS EMPTY FOR ABSOLUTELY NO REASON!  err =", err, "and rawResponse =", rawResp.String())
+		log.Println("NIGHTMARE request JSON =", buf.String())
 	}
 	return tokenResp.AccessToken, nil
 }
