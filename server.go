@@ -409,7 +409,7 @@ func serveFaucet(c *gin.Context) {
 	//    for miners who have already requested at least once:
 	//    - Get the prevPower associated with the miner at last renewal
 	//    - Get the currentPower of the miner
-	//    - subtract prevPower - currentPower to get the powerDiff
+	//    - subtract currentPower - prevPower to get the powerDiff
 	//    - grant size = powerDiff (in GiB) / 2
 	owed := env.FaucetBaseRate
 	if isMiner {
@@ -428,7 +428,7 @@ func serveFaucet(c *gin.Context) {
 			targetAddr = worker
 
 			if user.ChangedMinerAddress(targetAddr) {
-				owed = env.FaucetBaseRate
+				owed = env.FaucetMinGrant
 			} else {
 				decodedCid, err := cid.Decode(user.MostRecentFaucetGrantCid)
 				if err != nil {
@@ -472,7 +472,7 @@ func serveFaucet(c *gin.Context) {
 				}
 			}
 		} else {
-			owed = env.FaucetBaseRate
+			owed = env.FaucetMinGrant
 		}
 	}
 
