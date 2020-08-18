@@ -10,11 +10,9 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/lotus/chain/types"
 	big "github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/ipfs/go-cid"
 	"github.com/pkg/errors"
 )
 
@@ -22,8 +20,9 @@ func main() {
 	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
 	fmt.Println("Time before miner can reup: ", env.FaucetRateLimit)
 	fmt.Println("Time before verifiers can reup: ", env.VerifierRateLimit)
-	fmt.Println("Base rate: ", env.FaucetBaseRate)
-	fmt.Println("Miner lower bound rate: ", env.FaucetMinGrant)
+	fmt.Println("First time miner faucet amount: ", env.FaucetFirstTimeMinerGrant)
+	fmt.Println("Second time+ miner faucet amount: ", env.FaucetMinerGrant)
+	fmt.Println("Non miner amount: ", env.FaucetNonMinerGrant)
 	fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAge)
 	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
 
@@ -382,7 +381,7 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	// No account less than a week old is allowed any FIL
+	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(env.FaucetMinAccountAge) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
@@ -403,77 +402,27 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	// determine the grant size:
-	//    for non-miners: the base rate
-	//    for miners who are requesting for the first time: the base rate
-	//    for miners who have already requested at least once:
-	//    - Get the prevPower associated with the miner at last renewal
-	//    - Get the currentPower of the miner
-	//    - subtract currentPower - prevPower to get the powerDiff
-	//    - grant size = powerDiff (in GiB) / 2
-	owed := env.FaucetBaseRate
+	// assume this account is not a miner
+	owed := env.FaucetNonMinerGrant
+
 	if isMiner {
 		if user.HasRequestedFromFaucetAsMiner() {
 			if user.MostRecentMinerFaucetGrant.Add(env.FaucetRateLimit).After(time.Now()) {
-				c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("you may only use the faucet once every %v hours", env.FaucetRateLimit.Hours())})
+				c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("miners may only use the faucet once every %v hours", env.FaucetRateLimit.Hours())})
 				return
 			}
-
-			worker, err := lotusGetMinerWorker(ctx, minerAddr)
-			if err != nil {
-				setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner worker for %v", minerAddr))
-				return
-			}
-
-			targetAddr = worker
-
-			if user.ChangedMinerAddress(targetAddr) {
-				owed = env.FaucetMinGrant
-			} else {
-				decodedCid, err := cid.Decode(user.MostRecentFaucetGrantCid)
-				if err != nil {
-					setError(c, http.StatusInternalServerError, errors.Wrapf(err, "decoding cid %v", user.MostRecentFaucetGrantCid))
-					return
-				}
-
-				receipt, err := api.StateSearchMsg(ctx, decodedCid)
-				if err != nil {
-					setError(c, http.StatusInternalServerError, errors.Wrapf(err, "searching for msg %v", decodedCid))
-					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-					return
-				}
-
-				prevPower, err := lotusGetMinerPower(ctx, minerAddr, receipt.TipSet)
-				if err != nil {
-					setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner power for %v (tipset %v)", minerAddr, receipt.TipSet))
-					return
-				}
-
-				currentPower, err := lotusGetMinerPower(ctx, minerAddr, types.EmptyTSK)
-				if err != nil {
-					setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner power for %v (empty tipset)", minerAddr))
-					return
-				}
-
-				powerDiff := types.BigSub(types.BigInt(currentPower.MinerPower.RawBytePower), types.BigInt(prevPower.MinerPower.RawBytePower))
-				if types.BigCmp(powerDiff, types.NewInt(0)) > 0 {
-					powerDiffGiB := types.BigDiv(powerDiff, types.NewInt(1073741824))
-					owedString := types.BigDiv(powerDiffGiB, types.NewInt(2)).String() + "fil"
-					owed, err = types.ParseFIL(owedString)
-					if err != nil {
-						setError(c, http.StatusInternalServerError, errors.Wrapf(err, "parsing FIL string '%v'", owedString))
-						return
-					}
-				}
-
-				// apply a lower bound
-				if types.BigCmp(types.BigInt(owed), types.BigInt(env.FaucetMinGrant)) < 0 {
-					owed = env.FaucetMinGrant
-				}
-			}
+			owed = env.FaucetMinerGrant
 		} else {
-			owed = env.FaucetMinGrant
+			owed = env.FaucetFirstTimeMinerGrant
 		}
+
+		worker, err := lotusGetMinerWorker(ctx, minerAddr)
+		if err != nil {
+			setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner worker for %v", minerAddr))
+			return
+		}
+
+		targetAddr = worker
 	}
 
 	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, owed)
@@ -556,38 +505,4 @@ func getUserIDFromJWT(c *gin.Context) (string, error) {
 		return "", err
 	}
 	return userID, nil
-}
-
-func testMinerAmountToSend(minerAddr address.Address) types.FIL {
-	fmt.Println("calculating for miner addr: ", minerAddr.String())
-	tipsetKey := lotusGetYesterdayTipsetKey()
-	prevPower, err := lotusGetMinerPower(context.TODO(), minerAddr, tipsetKey)
-	if err != nil {
-		return types.FIL(types.NewInt(0))
-	}
-
-	fmt.Println("prev power", prevPower.MinerPower.RawBytePower)
-	owed := env.FaucetBaseRate
-
-	currentPower, err := lotusGetMinerPower(context.TODO(), minerAddr, types.EmptyTSK)
-	if err != nil {
-		return types.FIL(types.NewInt(0))
-	}
-
-	powerDiff := types.BigSub(types.BigInt(currentPower.MinerPower.RawBytePower), types.BigInt(prevPower.MinerPower.RawBytePower))
-	fmt.Println("POWER DIFF", powerDiff)
-	if types.BigCmp(powerDiff, types.NewInt(0)) > 0 {
-		powerDiffGiB := types.BigDiv(powerDiff, types.NewInt(1073741824))
-		fmt.Println("power diff in GiB", powerDiffGiB)
-		owedString := types.BigDiv(powerDiffGiB, types.NewInt(2)).String() + "fil"
-		owed, _ = types.ParseFIL(owedString)
-		fmt.Println("OWED", owed)
-	}
-	fmt.Println("____________________________")
-
-	if types.BigCmp(types.BigInt(owed), types.BigInt(env.FaucetMinGrant)) < 0 {
-		owed = env.FaucetMinGrant
-	}
-
-	return owed
 }
