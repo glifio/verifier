@@ -359,6 +359,17 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
+	user, err := getUserByID(userID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
+		return
+	}
+
+	if len(user.Accounts) == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Please re-authenticate with GitHub after a Filecoin network reset."})
+		return
+	}
+
 	// This helps us keep the user locked while we wait to see if the message was successful.  If
 	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
 	var successfullySubmittedMessage bool
@@ -374,12 +385,6 @@ func serveFaucet(c *gin.Context) {
 			unlockUser(userID, UserLock_Faucet)
 		}
 	}()
-
-	user, err := getUserByID(userID)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
-		return
-	}
 
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(env.FaucetMinAccountAge) {
