@@ -27,9 +27,10 @@ type Env struct {
 	FaucetAddr                address.Address `env:"FAUCET_ADDR"`
 	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
 	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
-	FaucetBaseRate            types.FIL       `env:"FAUCET_BASE_RATE" envDefault:"400fil"`
-	FaucetMinGrant            types.FIL       `env:"FAUCET_MIN_GRANT" envDefault:"5000fil"`
-	FaucetMinAccountAge       time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"168h"`
+	FaucetNonMinerGrant       types.FIL       `env:"FAUCET_NON_MINER_RATE" envDefault:"100fil"`
+	FaucetFirstTimeMinerGrant types.FIL       `env:"FAUCET_FIRST_TIME_MINER_GRANT" envDefault:"1000fil"`
+	FaucetMinerGrant          types.FIL       `env:"FAUCET_MINER_GRANT" envDefault:"500fil"`
+	FaucetMinAccountAge       time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"336h"`
 	GasMultiple               uint64          `env:"GAS_MULTIPLE" envDefault:"2"`
 }
 

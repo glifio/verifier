@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/lotus/chain/types"
@@ -33,24 +32,4 @@ func lotusGetYesterdayTipsetKey() types.TipSetKey {
 	tipset, _ := api.ChainGetTipSetByHeight(context.TODO(), chainHead.Height()-2880, types.EmptyTSK)
 
 	return tipset.Key()
-}
-
-func runTest() {
-	addrs, err := lotusListMiners()
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Miners:")
-	for _, addr := range addrs {
-		fmt.Println("  -", addr.String())
-	}
-
-	add1, _ := address.NewFromString("t01285")
-	add2, _ := address.NewFromString("t01766")
-	add3, _ := address.NewFromString("t01783")
-
-	testMinerAmountToSend(add1)
-	testMinerAmountToSend(add2)
-	testMinerAmountToSend(add3)
 }
