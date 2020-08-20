@@ -185,7 +185,7 @@ func serveVerifyAccount(c *gin.Context) {
 
 	user, err := getUserByID(userID)
 	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "The network has reset since your last visit. Please click the retry button above."})
 		return
 	}
 
@@ -361,7 +361,7 @@ func serveFaucet(c *gin.Context) {
 
 	user, err := getUserByID(userID)
 	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "user not found, have you authenticated?"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "The network has reset since your last visit. Please click the retry button above."})
 		return
 	}
 
