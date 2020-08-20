@@ -26,8 +26,6 @@ func main() {
 	fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAge)
 	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
 
-	// runTest()
-
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -388,6 +386,8 @@ func serveFaucet(c *gin.Context) {
 
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(env.FaucetMinAccountAge) {
+		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}
