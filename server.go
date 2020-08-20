@@ -49,9 +49,11 @@ func main() {
 
 var (
 	ErrUnsupportedProvider  = errors.New("unsupported oauth provider")
-	ErrUserTooNew           = errors.New("user account is too new")
+	ErrUserTooNew           = errors.New("User account is too new.")
 	ErrSufficientAllowance  = errors.New("allowance is already sufficient")
 	ErrAllocatedTooRecently = errors.New("you must wait 30 days in between reallocations")
+	ErrStaleJWT             = errors.New("The network has reset since your last visit. Please click the retry button above.")
+	ErrNonMinerOauthAttempt = errors.New("This GitHub account has already used the faucet with a non-miner Filecoin address. Please try again with your Miner ID.")
 )
 
 type UserLock string
@@ -183,7 +185,7 @@ func serveVerifyAccount(c *gin.Context) {
 
 	user, err := getUserByID(userID)
 	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "The network has reset since your last visit. Please click the retry button above."})
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
 		return
 	}
 
@@ -359,12 +361,12 @@ func serveFaucet(c *gin.Context) {
 
 	user, err := getUserByID(userID)
 	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "The network has reset since your last visit. Please click the retry button above."})
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
 		return
 	}
 
 	if len(user.Accounts) == 0 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Please re-authenticate with GitHub after a Filecoin network reset."})
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
 		return
 	}
 
@@ -403,7 +405,7 @@ func serveFaucet(c *gin.Context) {
 
 	// ensure the non-miner/new miner hasn't already gotten their non-miner faucet tx
 	if !isMiner && user.ReceivedNonMinerFaucetGrant {
-		c.JSON(http.StatusForbidden, gin.H{"error": "non-miners can only use the faucet once"})
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrNonMinerOauthAttempt.Error()})
 		return
 	}
 
