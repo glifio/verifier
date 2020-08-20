@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -23,8 +24,9 @@ func init() {
 			defer resp.Close()
 
 			type GithubAccountData struct {
-				Username  string    `json:"login"`
+				ID        uint      `json:"id"`
 				Name      string    `json:"name"`
+				Username  string    `json:"login"`
 				CreatedAt time.Time `json:"created_at"`
 			}
 
@@ -34,8 +36,13 @@ func init() {
 				return AccountData{}, err
 			}
 
+			// we convert this to a string so it matches with a more generic UniqueID
+			// and because it doesn't break the current network whic hwas using usernames
+			stringID := fmt.Sprintf("%v", user.ID)
+
 			accountData := AccountData{
-				UniqueID:  user.Username,
+				UniqueID:  stringID,
+				Username:  user.Username,
 				Name:      user.Name,
 				CreatedAt: user.CreatedAt,
 			}

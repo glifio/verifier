@@ -26,6 +26,7 @@ type User struct {
 
 type AccountData struct {
 	UniqueID  string    `json:"unique_id"`
+	Username  string    `json:"username"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
 }
