@@ -54,6 +54,7 @@ var (
 	ErrAllocatedTooRecently = errors.New("you must wait 30 days in between reallocations")
 	ErrStaleJWT             = errors.New("The network has reset since your last visit. Please click the retry button above.")
 	ErrNonMinerOauthAttempt = errors.New("This GitHub account has already used the faucet with a non-miner Filecoin address. Please try again with your Miner ID.")
+	ErrUserLocked           = errors.New("We're still waiting for your previous transaction to finalize.")
 )
 
 type UserLock string
@@ -377,7 +378,7 @@ func serveFaucet(c *gin.Context) {
 	// Lock the user for the duration of this operation
 	err = lockUser(userID, UserLock_Faucet)
 	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "your last transaction is still confirming"})
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
 	}
 	defer func() {
@@ -388,7 +389,7 @@ func serveFaucet(c *gin.Context) {
 
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(env.FaucetMinAccountAge) {
-		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\n----------"
+		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's UniqueID: " + user.Accounts["github"].UniqueID + "\n----------"
 		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
