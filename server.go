@@ -471,7 +471,7 @@ func serveFaucet(c *gin.Context) {
 		}
 
 		user.MostRecentFaucetGrantCid = cid.String()
-		user.MostRecentFaucetAddress = targetAddr.String()
+		user.MostRecentFaucetAddress = targetAddrStr
 		if !minerAddr.Empty() {
 			user.MostRecentMinerFaucetGrant = time.Now()
 		} else {
