@@ -389,7 +389,7 @@ func serveFaucet(c *gin.Context) {
 
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(env.FaucetMinAccountAge) {
-		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's UniqueID: " + user.Accounts["github"].UniqueID + "\n----------"
+		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
 		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
