@@ -37,5 +37,9 @@ func initBlockListCache() error {
 }
 
 func isAddressBlocked(address address.Address) bool {
-	return blocklist[address]
+	blocked := blocklist[address]
+	if blocked {
+		fmt.Println("Blocked address: ", address.String())
+	}
+	return blocked
 }
