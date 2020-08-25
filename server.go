@@ -26,6 +26,11 @@ func main() {
 	fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAge)
 	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
 
+	err := initBlockListCache()
+	if err != nil {
+		fmt.Println("ERROR CREATING BLOCKLIST: ", err)
+	}
+
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -55,6 +60,7 @@ var (
 	ErrStaleJWT             = errors.New("The network has reset since your last visit. Please click the retry button above.")
 	ErrNonMinerOauthAttempt = errors.New("This GitHub account has already used the faucet with a non-miner Filecoin address. Please try again with your Miner ID.")
 	ErrUserLocked           = errors.New("We're still waiting for your previous transaction to finalize.")
+	ErrAddressBlocked       = errors.New("This address or Miner ID has reached its maximum usage of the faucet.")
 )
 
 type UserLock string
@@ -384,6 +390,11 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
+	if isAddressBlocked(targetAddr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrAddressBlocked.Error()})
+		return
+	}
+
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		setError(c, http.StatusInternalServerError, errors.Wrap(err, "getting full node API"))
@@ -412,6 +423,11 @@ func serveFaucet(c *gin.Context) {
 	// ensure the non-miner/new miner hasn't already gotten their non-miner faucet tx
 	if !isMiner && user.ReceivedNonMinerFaucetGrant {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrNonMinerOauthAttempt.Error()})
+		return
+	}
+
+	if isAddressBlocked(minerAddr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrAddressBlocked.Error()})
 		return
 	}
 

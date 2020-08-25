@@ -25,6 +25,13 @@ docker run -it \
 
 **NOTE** - please look at `env.go` for the most up to date environment variable configurations.
 
+The `PathToBlocklistTxtFile` environment variable (`PATH_TO_BLOCKLIST_TXT_FILE`) should point to a `.txt` file, use absolute paths. The `.txt` file should contain valid Filecoin addresses, 1 per line like:
+
+```txt
+t0123
+t15vmf65zmgphczybqlhc6dnfntve4c7sk7eflmly
+```
+
 Local dev:
 
 Load environment variables (been using direnv) so: with a `.nvmrc` and then `direnv allow`

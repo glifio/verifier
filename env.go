@@ -32,6 +32,7 @@ type Env struct {
 	FaucetMinerGrant          types.FIL       `env:"FAUCET_MINER_GRANT" envDefault:"500fil"`
 	FaucetMinAccountAge       time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"336h"`
 	GasMultiple               uint64          `env:"GAS_MULTIPLE" envDefault:"2"`
+	PathToBlocklistTxtFile    string          `env:"PATH_TO_BLOCKLIST_TXT_FILE"`
 }
 
 var env Env
