@@ -22,6 +22,7 @@ type User struct {
 	MostRecentFaucetAddress     string
 	ReceivedNonMinerFaucetGrant bool
 	VerifiedFilecoinAddress     string
+	Locked_Faucet               bool
 }
 
 type AccountData struct {
@@ -90,7 +91,6 @@ func lockUser(userID string, lock UserLock) error {
 	table := dynamoTable(env.DynamodbTableName)
 	return table.Update("ID", userID).
 		Set("Locked_"+string(lock), true).
-		If("'Locked_"+string(lock)+"' = ? OR attribute_not_exists(Locked_"+string(lock)+")", false).
 		Run()
 }
 
@@ -98,7 +98,6 @@ func unlockUser(userID string, lock UserLock) error {
 	table := dynamoTable(env.DynamodbTableName)
 	return table.Update("ID", userID).
 		Set("Locked_"+string(lock), false).
-		If("'Locked_"+string(lock)+"' = ?", true).
 		Run()
 }
 
