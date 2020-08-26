@@ -15,6 +15,7 @@ RUN apt install -y pkg-config gcc mesa-opencl-icd ocl-icd-opencl-dev
 WORKDIR /verifier
 COPY --from=builder-filecoin-ffi /filecoin-ffi ./filecoin-ffi/
 ADD *.go ./
+ADD addresses.txt ./
 ADD go.mod go.sum ./
 RUN go build -o /app .
 
