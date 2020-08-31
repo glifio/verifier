@@ -174,25 +174,19 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	// This helps us keep the user locked while we wait to see if the message was successful.  If
-	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
-	var successfullySubmittedMessage bool
-
-	// Lock the user for the duration of this operation
-	err = lockUser(userID, UserLock_Verifier)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-	defer func() {
-		if !successfullySubmittedMessage {
-			unlockUser(userID, UserLock_Verifier)
-		}
-	}()
-
 	user, err := getUserByID(userID)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
+		return
+	}
+
+	if len(user.Accounts) == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
+		return
+	}
+
+	if user.Locked_Verifier {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
 	}
 
@@ -208,6 +202,22 @@ func serveVerifyAccount(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
 		return
 	}
+
+	// This helps us keep the user locked while we wait to see if the message was successful.  If
+	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
+	var successfullySubmittedMessage bool
+
+	// Lock the user for the duration of this operation
+	err = lockUser(userID, UserLock_Verifier)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+	defer func() {
+		if !successfullySubmittedMessage {
+			unlockUser(userID, UserLock_Verifier)
+		}
+	}()
 
 	// Ensure that the user is actually owed bytes
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -247,14 +257,19 @@ func serveVerifyAccount(c *gin.Context) {
 		defer unlockUser(userID, UserLock_Verifier)
 
 		// Determine whether the Filecoin message succeeded
-		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
+		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
 
 		ok, err := lotusWaitMessageResult(ctx, cid)
 		if err != nil {
 			// This is already logged in lotusWaitMessageResult
 			return
+		} else if !ok {
+			// Transaction failed
+			log.Println("ERROR: faucet transaction failed")
+			return
 		}
+
 		user.VerifiedFilecoinAddress = body.TargetAddr
 		if ok {
 			user.MostRecentAllocation = time.Now()
@@ -381,7 +396,7 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	targetAddr, err := address.NewFromString(targetAddrStr)
@@ -412,7 +427,7 @@ func serveFaucet(c *gin.Context) {
 	}
 
 	// returns an ID address if its a miner address, otherwise an empty address
-	minerAddr, err := lotusGetMinerAddr(ctx, targetAddr)
+	minerAddr, err := lotusGetMinerAddr(ctx, api, targetAddr)
 	if err != nil && errors.Cause(err) != ErrNotMiner {
 		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner address for %v", targetAddr))
 		return
@@ -445,7 +460,7 @@ func serveFaucet(c *gin.Context) {
 			owed = env.FaucetFirstTimeMinerGrant
 		}
 
-		worker, err := lotusGetMinerWorker(ctx, minerAddr)
+		worker, err := lotusGetMinerWorker(ctx, api, minerAddr)
 		if err != nil {
 			setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner worker for %v", minerAddr))
 			return
@@ -478,7 +493,7 @@ func serveFaucet(c *gin.Context) {
 		defer unlockUser(userID, UserLock_Faucet)
 
 		// Determine whether the Filecoin message succeeded
-		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
+		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
 
 		ok, err := lotusWaitMessageResult(ctx, cid)
