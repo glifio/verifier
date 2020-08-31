@@ -63,13 +63,13 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 		return cid.Cid{}, err
 	}
 
-	gasPrice, err := lotusEstimateGasPrice(ctx, api, env.LotusVerifierAddr, gasLimit)
+	gasPremium, err := lotusEstimateGasPremium(ctx, api, env.LotusVerifierAddr, gasLimit)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 
 	msg.GasLimit = gasLimit * int64(env.GasMultiple)
-	msg.GasPremium = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
+	msg.GasPremium = types.BigMul(gasPremium, types.NewInt(env.GasMultiple))
 
 	smsg, err := api.MpoolPushMessage(ctx, msg, nil)
 	if err != nil {
@@ -287,21 +287,15 @@ func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Mes
 	return gasLimit, nil
 }
 
-func lotusEstimateGasPrice(ctx context.Context, api api.FullNode, address address.Address, gasLimit int64) (types.BigInt, error) {
-	gasPrice, err := api.GasEstimateGasPremium(ctx, 0, address, gasLimit, types.EmptyTSK)
+func lotusEstimateGasPremium(ctx context.Context, api api.FullNode, address address.Address, gasLimit int64) (types.BigInt, error) {
+	gasPremium, err := api.GasEstimateGasPremium(ctx, 0, address, gasLimit, types.EmptyTSK)
 	if err != nil {
 		return types.NewInt(0), err
 	}
-	return gasPrice, nil
+	return gasPremium, nil
 }
 
-func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return cid.Cid{}, err
-	}
-	defer closer()
-
+func lotusSendFIL(ctx context.Context, api api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
 	msg := &types.Message{
 		From:       fromAddr,
 		To:         toAddr,
@@ -315,13 +309,13 @@ func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmou
 		return cid.Cid{}, err
 	}
 
-	gasPrice, err := lotusEstimateGasPrice(ctx, api, fromAddr, gasLimit)
+	gasPremium, err := lotusEstimateGasPremium(ctx, api, fromAddr, gasLimit)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 
 	msg.GasLimit = gasLimit * int64(env.GasMultiple)
-	msg.GasPremium = types.BigMul(gasPrice, types.NewInt(env.GasMultiple))
+	msg.GasPremium = types.BigMul(gasPremium, types.NewInt(env.GasMultiple))
 
 	sm, err := api.MpoolPushMessage(ctx, msg, nil)
 	if err != nil {
@@ -341,15 +335,9 @@ func lotusTranslateError(err *error) {
 	}
 }
 
-func lotusGetMinerAddr(ctx context.Context, addr address.Address) (_ address.Address, err error) {
+func lotusGetMinerAddr(ctx context.Context, api api.FullNode, addr address.Address) (_ address.Address, err error) {
 	defer withStack(&err)
 	defer lotusTranslateError(&err)
-
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return address.Undef, err
-	}
-	defer closer()
 
 	if addr.Protocol() != address.ID {
 		// if this call errs, we're not gonna check explicit err messages
@@ -359,7 +347,7 @@ func lotusGetMinerAddr(ctx context.Context, addr address.Address) (_ address.Add
 			return address.Undef, ErrNotMiner
 		}
 
-		return lotusGetMinerAddr(ctx, idAddr)
+		return lotusGetMinerAddr(ctx, api, idAddr)
 	}
 
 	actor, err := api.StateGetActor(ctx, addr, types.EmptyTSK)
@@ -371,15 +359,9 @@ func lotusGetMinerAddr(ctx context.Context, addr address.Address) (_ address.Add
 	return addr, nil
 }
 
-func lotusGetMinerWorker(ctx context.Context, maddr address.Address) (_ address.Address, err error) {
+func lotusGetMinerWorker(ctx context.Context, api api.FullNode, maddr address.Address) (_ address.Address, err error) {
 	defer withStack(&err)
 	defer lotusTranslateError(&err)
-
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return address.Undef, err
-	}
-	defer closer()
 
 	minerInfo, err := api.StateMinerInfo(ctx, maddr, types.EmptyTSK)
 	if err != nil {
@@ -392,17 +374,16 @@ func lotusGetMinerWorker(ctx context.Context, maddr address.Address) (_ address.
 func lotusGetMinerPower(ctx context.Context, addr address.Address, tipsetKey types.TipSetKey) (_ *api.MinerPower, err error) {
 	defer withStack(&err)
 	defer lotusTranslateError(&err)
-
-	minerAddr, err := lotusGetMinerAddr(ctx, addr)
-	if err != nil {
-		return nil, err
-	}
-
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer closer()
+
+	minerAddr, err := lotusGetMinerAddr(ctx, api, addr)
+	if err != nil {
+		return nil, err
+	}
 
 	power, err := api.StateMinerPower(ctx, minerAddr, tipsetKey)
 	if err != nil {
