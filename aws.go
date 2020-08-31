@@ -23,6 +23,7 @@ type User struct {
 	ReceivedNonMinerFaucetGrant bool
 	VerifiedFilecoinAddress     string
 	Locked_Faucet               bool
+	Locked_Verifier             bool
 }
 
 type AccountData struct {
