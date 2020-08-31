@@ -295,13 +295,7 @@ func lotusEstimateGasPremium(ctx context.Context, api api.FullNode, address addr
 	return gasPremium, nil
 }
 
-func lotusSendFIL(ctx context.Context, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return cid.Cid{}, err
-	}
-	defer closer()
-
+func lotusSendFIL(ctx context.Context, api api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
 	msg := &types.Message{
 		From:       fromAddr,
 		To:         toAddr,

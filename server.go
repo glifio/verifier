@@ -266,7 +266,7 @@ func serveVerifyAccount(c *gin.Context) {
 			return
 		} else if !ok {
 			// Transaction failed
-			log.Println("ERROR: faucet transaction failed")
+			log.Println("ERROR: verify transaction failed")
 			return
 		}
 
@@ -396,7 +396,7 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	targetAddr, err := address.NewFromString(targetAddrStr)
@@ -469,7 +469,7 @@ func serveFaucet(c *gin.Context) {
 		targetAddr = worker
 	}
 
-	cid, err := lotusSendFIL(ctx, faucetAddr, targetAddr, owed)
+	cid, err := lotusSendFIL(ctx, api, faucetAddr, targetAddr, owed)
 	if err != nil {
 		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v from %v to %v", owed, faucetAddr, targetAddr))
 		return
