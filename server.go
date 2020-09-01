@@ -198,7 +198,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Ensure that the user hasn't asked for more allocation too recently
-	if user.MostRecentAllocation.Add(env.VerifierRateLimit * time.Hour).After(time.Now()) {
+	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
 		return
 	}
