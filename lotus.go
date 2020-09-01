@@ -259,7 +259,7 @@ func lotusGetFullNodeAPI(ctx context.Context) (apiClient api.FullNode, closer js
 		ainfo := lcli.APIInfo{Token: []byte(env.LotusAPIToken)}
 
 		var innerErr error
-		apiClient, closer, innerErr = client.NewFullNodeRPC(env.LotusAPIDialAddr, ainfo.AuthHeader())
+		apiClient, closer, innerErr = client.NewFullNodeRPC(ctx, env.LotusAPIDialAddr, ainfo.AuthHeader())
 		return innerErr
 	})
 	return
