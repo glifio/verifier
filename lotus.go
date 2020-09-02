@@ -195,7 +195,7 @@ func lotusCheckAccountRemainingBytes(ctx context.Context, targetAddr string) (bi
 		return big.Int{}, err
 	}
 	if dcap == nil {
-		return big.Int{}, errors.New("Account is not a verified client.")
+		return big.Int{}, errors.New("Account is not verified.")
 	}
 	if dcap.Int == nil {
 		return big.NewInt(0), nil
