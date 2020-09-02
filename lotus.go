@@ -188,33 +188,19 @@ func lotusCheckAccountRemainingBytes(ctx context.Context, targetAddr string) (bi
 	}
 	defer closer()
 
-	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, types.EmptyTSK)
+	dcap, err := api.StateVerifiedClientStatus(ctx, caddr, types.EmptyTSK)
+	err = ignoreNotFound(err)
+
 	if err != nil {
 		return big.Int{}, err
 	}
-
-	apibs := apibstore.NewAPIBlockstore(api)
-	cst := cbor.NewCborStore(apibs)
-
-	var st verifreg.State
-	if err := cst.Get(ctx, act.Head, &st); ignoreNotFound(err) != nil {
-		return big.Int{}, err
+	if dcap == nil {
+		return big.Int{}, errors.New("Account is not a verified client.")
 	}
-
-	vh, err := hamt.LoadNode(ctx, cst, st.VerifiedClients, hamt.UseTreeBitWidth(5))
-	if ignoreNotFound(err) != nil {
-		return big.Int{}, err
+	if dcap.Int == nil {
+		return big.NewInt(0), nil
 	}
-
-	var dcap verifreg.DataCap
-	if err := vh.Find(ctx, string(caddr.Bytes()), &dcap); ignoreNotFound(err) != nil {
-		return big.Int{}, err
-	}
-
-	if dcap.Int != nil {
-		return dcap, nil
-	}
-	return big.NewInt(0), nil
+	return *dcap, nil
 }
 
 func lotusCheckVerifierRemainingBytes(ctx context.Context, targetAddr string) (big.Int, error) {

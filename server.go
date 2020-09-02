@@ -317,10 +317,6 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 		return
 	}
 
-	if dcap.Int == nil {
-		dcap = big.NewInt(0)
-	}
-
 	user, err := getUserByVerifiedFilecoinAddress(targetAddr)
 	if err != nil {
 		// no-op
