@@ -30,8 +30,8 @@ type Env struct {
 	FaucetNonMinerGrant       types.FIL       `env:"FAUCET_NON_MINER_RATE" envDefault:"100fil"`
 	FaucetFirstTimeMinerGrant types.FIL       `env:"FAUCET_FIRST_TIME_MINER_GRANT" envDefault:"1000fil"`
 	FaucetMinerGrant          types.FIL       `env:"FAUCET_MINER_GRANT" envDefault:"500fil"`
+	MaxFee                    types.FIL       `env:"MAX_FEE" envDefault:"0afil"`
 	FaucetMinAccountAge       time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"336h"`
-	GasMultiple               uint64          `env:"GAS_MULTIPLE" envDefault:"2"`
 	PathToBlocklistTxtFile    string          `env:"PATH_TO_BLOCKLIST_TXT_FILE"`
 }
 
