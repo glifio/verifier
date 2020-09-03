@@ -50,28 +50,18 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 	defer closer()
 
 	msg := &types.Message{
-		To:         builtin.VerifiedRegistryActorAddr,
-		From:       env.LotusVerifierAddr,
-		Method:     builtin.MethodsVerifiedRegistry.AddVerifiedClient,
-		GasPremium: types.NewInt(0),
-		GasLimit:   0,
-		Params:     params,
+		To:     builtin.VerifiedRegistryActorAddr,
+		From:   env.LotusVerifierAddr,
+		Method: builtin.MethodsVerifiedRegistry.AddVerifiedClient,
+		Params: params,
 	}
 
-	gasLimit, err := lotusEstimateGasLimit(ctx, api, msg)
+	msgWGas, err := lotusEstimateMsgGas(ctx, api, msg)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 
-	gasPremium, err := lotusEstimateGasPremium(ctx, api, env.LotusVerifierAddr, gasLimit)
-	if err != nil {
-		return cid.Cid{}, err
-	}
-
-	msg.GasLimit = gasLimit * int64(env.GasMultiple)
-	msg.GasPremium = types.BigMul(gasPremium, types.NewInt(env.GasMultiple))
-
-	smsg, err := api.MpoolPushMessage(ctx, msg, nil)
+	smsg, err := api.MpoolPushMessage(ctx, msgWGas, nil)
 	if err != nil {
 		return cid.Cid{}, err
 	}
@@ -265,6 +255,20 @@ func lotusCheckBalance(ctx context.Context, address address.Address) (types.FIL,
 	return types.FIL(balance), nil
 }
 
+func lotusEstimateMsgGas(ctx context.Context, lapi api.FullNode, msg *types.Message) (*types.Message, error) {
+	sendSpec := &api.MessageSendSpec{
+		MaxFee: types.BigInt(env.MaxFee),
+	}
+
+	msg, err := lapi.GasEstimateMessageGas(ctx, msg, sendSpec, types.EmptyTSK)
+
+	if err != nil {
+		return &types.Message{}, err
+	}
+
+	return msg, nil
+}
+
 func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Message) (int64, error) {
 	gasLimit, err := api.GasEstimateGasLimit(ctx, msg, types.EmptyTSK)
 	if err != nil {
@@ -283,27 +287,18 @@ func lotusEstimateGasPremium(ctx context.Context, api api.FullNode, address addr
 
 func lotusSendFIL(ctx context.Context, api api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
 	msg := &types.Message{
-		From:       fromAddr,
-		To:         toAddr,
-		Value:      types.BigInt(filAmount),
-		GasLimit:   0,
-		GasPremium: types.NewInt(0),
+		From:  fromAddr,
+		To:    toAddr,
+		Value: types.BigInt(filAmount),
 	}
 
-	gasLimit, err := lotusEstimateGasLimit(ctx, api, msg)
+	msgWGas, err := lotusEstimateMsgGas(ctx, api, msg)
 	if err != nil {
 		return cid.Cid{}, err
+
 	}
 
-	gasPremium, err := lotusEstimateGasPremium(ctx, api, fromAddr, gasLimit)
-	if err != nil {
-		return cid.Cid{}, err
-	}
-
-	msg.GasLimit = gasLimit * int64(env.GasMultiple)
-	msg.GasPremium = types.BigMul(gasPremium, types.NewInt(env.GasMultiple))
-
-	sm, err := api.MpoolPushMessage(ctx, msg, nil)
+	sm, err := api.MpoolPushMessage(ctx, msgWGas, nil)
 	if err != nil {
 		return cid.Cid{}, err
 	}
