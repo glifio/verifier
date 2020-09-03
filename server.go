@@ -25,6 +25,7 @@ func main() {
 	fmt.Println("Non miner amount: ", env.FaucetNonMinerGrant)
 	fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAge)
 	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
+	fmt.Println("Max fee: ", env.MaxFee)
 
 	err := initBlockListCache()
 	if err != nil {
