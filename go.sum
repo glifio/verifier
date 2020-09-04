@@ -336,6 +336,8 @@ github.com/filecoin-project/go-fil-markets v0.5.6 h1:WmBbV0qBU4NvLJ64xROpzrKUbkZ
 github.com/filecoin-project/go-fil-markets v0.5.6/go.mod h1:SJApXAKr5jyGpbzDEOhvemui0pih7hhT8r2MXJxCP1E=
 github.com/filecoin-project/go-fil-markets v0.5.8 h1:uwl0QNUVmmSlUQfxshpj21Dmhh6WKTQNhnb1GMfdp18=
 github.com/filecoin-project/go-fil-markets v0.5.8/go.mod h1:6ZX1vbZbnukbVQ8tCB/MmEizuW/bmRX7SpGAltU3KVg=
+github.com/filecoin-project/go-fil-markets v0.5.9 h1:iIO17UfIjUCiB37TRwgiBwAyfJJwHb8e8uAfu7F37gc=
+github.com/filecoin-project/go-fil-markets v0.5.9/go.mod h1:/cb1IoaiHhwFEWyIAPm9yN6Z+MiPujFZBT8BGH7LwB8=
 github.com/filecoin-project/go-jsonrpc v0.1.1-0.20200602181149-522144ab4e24 h1:Jc7vkplmZYVuaEcSXGHDwefvZIdoyyaoGDLqSr8Svms=
 github.com/filecoin-project/go-jsonrpc v0.1.1-0.20200602181149-522144ab4e24/go.mod h1:j6zV//WXIIY5kky873Q3iIKt/ViOE8rcijovmpxrXzM=
 github.com/filecoin-project/go-jsonrpc v0.1.2-0.20200817153016-2ea5cbaf5ec0 h1:/GT3V+3f+H5w5odb7LcCWJ1zPw8H8m9TsGQcU0cGSHo=
@@ -388,7 +390,13 @@ github.com/filecoin-project/lotus v0.4.3-0.20200820203717-d1718369a182 h1:PbLfyC
 github.com/filecoin-project/lotus v0.4.3-0.20200820203717-d1718369a182/go.mod h1:biFZPQ/YyQGfkHUmHMiaNf2hnD6zm1+OAXPQYQ61Zkg=
 github.com/filecoin-project/lotus v0.5.8-0.20200901090926-b8bbbf3ea3b1 h1:arXSyebj76Nj7LBaAIuT1k0jNQIt+mfbTw3lllJcRIA=
 github.com/filecoin-project/lotus v0.5.8-0.20200901090926-b8bbbf3ea3b1/go.mod h1:JeT2ti5ArW4B69k1FMMFV1rj00wX4ooHMX6zS5MgY+w=
+github.com/filecoin-project/lotus v0.5.8-0.20200901143519-64bdd620acf1/go.mod h1:JeT2ti5ArW4B69k1FMMFV1rj00wX4ooHMX6zS5MgY+w=
+github.com/filecoin-project/lotus v0.5.8-0.20200901153315-fa4000663a61/go.mod h1:gs5PdzCNGg5vhLMFh3VnUnyvCYXCKJH6Rw2k/PVz1uU=
+github.com/filecoin-project/lotus v0.5.8-0.20200902130912-0962292f920e/go.mod h1:OkZ5aUqs+fFnJOq9243WJDsTa9c3/Ae67NIAwVhAB+0=
+github.com/filecoin-project/lotus v0.5.8-0.20200903221953-ada5e6ae68cf/go.mod h1:wxuzS4ozpCFThia18G+J5P0Jp/DSiq9ezzJF1yvZuP4=
 github.com/filecoin-project/lotus v0.5.8 h1:DZnJDyuqCrI9/eWqELr1jxXreYMI6Kn4wCVF7hjAXwQ=
+github.com/filecoin-project/lotus v0.5.11-0.20200904163226-52ce80f2b442 h1:RFGJqV8Q4RkvqBu1SKH1ygL1+RQK8qMc98QTV8DC6ZE=
+github.com/filecoin-project/lotus v0.5.11-0.20200904163226-52ce80f2b442/go.mod h1:VGF7AfUPxHJQFKVNYo3vcJZXhMEfsMA/5Rs6x6Y0BiY=
 github.com/filecoin-project/sector-storage v0.0.0-20200508203401-a74812ba12f3/go.mod h1:B+xzopr/oWZJz2hBL5Ekb7Obcum5ntmfbaAUlaaho28=
 github.com/filecoin-project/sector-storage v0.0.0-20200522011946-a59ca7536a95 h1:wNpbsUY11P7+3yBfHOXsH+tAyferf1BVSe5S+HRm+7s=
 github.com/filecoin-project/sector-storage v0.0.0-20200522011946-a59ca7536a95/go.mod h1:1UpuWCUC7XNfgyufyQQq+/40JSzhfGdgcwauK55C8gk=
@@ -445,6 +453,10 @@ github.com/filecoin-project/storage-fsm v0.0.0-20200805013058-9d9ea4e6331f h1:We
 github.com/filecoin-project/storage-fsm v0.0.0-20200805013058-9d9ea4e6331f/go.mod h1:1CGbd11KkHuyWPT+xwwCol1zl/jnlpiKD2L4fzKxaiI=
 github.com/filecoin-project/test-vectors v0.0.0-20200819133914-e20cc29cc926/go.mod h1:ou1Im2BTyrYTnXX8yj5VvC+DTfbIrwESJjKDxbh31nA=
 github.com/filecoin-project/test-vectors v0.0.0-20200826113833-9ffe6524729d/go.mod h1:hY/JN3OFRtykBrMByFjTonUFEOW2bRJjyR5YMUh3jLw=
+github.com/filecoin-project/test-vectors v0.0.0-20200901152848-cd8867c435b9/go.mod h1:bhGAdMCoLxHz2vw14BjR6iuMrWMEZ/ezyF1ri2AXwQI=
+github.com/filecoin-project/test-vectors v0.0.0-20200901185932-907892394dd8/go.mod h1:AjyLuikTxw+nwSYBflF3ndED/N7gJ2RUYbmIouD2Xtw=
+github.com/filecoin-project/test-vectors v0.0.0-20200902131127-9806d09b005d/go.mod h1:QNI4sUwq9kZSR3IJJcQAzKkSSF89lV4R2Yq2DhJ5doM=
+github.com/filecoin-project/test-vectors v0.0.0-20200903223506-84da0a5ea125/go.mod h1:Lc4OqB4cQsJVCiSKq7tC7VBRoDjgP66DEc/mlC46qgg=
 github.com/fjl/memsize v0.0.0-20180418122429-ca190fb6ffbc/go.mod h1:VvhXpOYNQvB+uIk2RvXzuaQtkQJzzIx6lSBe1xv7hi0=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
 github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6/go.mod h1:1i71OnUq3iUe1ma7Lr6yG6/rjvM3emb6yoL7xLFzcVQ=
@@ -874,6 +886,7 @@ github.com/joeshaw/multierror v0.0.0-20140124173710-69b34d4ec901 h1:rp+c0RAYOWj8
 github.com/joeshaw/multierror v0.0.0-20140124173710-69b34d4ec901/go.mod h1:Z86h9688Y0wesXCyonoVr47MasHilkuLMqGhRZ4Hpak=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/jonboulle/clockwork v0.1.1-0.20190114141812-62fb9bc030d1/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
+github.com/jpillora/backoff v1.0.0/go.mod h1:J/6gKK9jxlEcS3zixgDgUAsiuZ7yrSoa/FX5e0EB2j4=
 github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlTRt3OuAQ=
 github.com/jsimonetti/rtnetlink v0.0.0-20190606172950-9527aa82566a/go.mod h1:Oz+70psSo5OFh8DBl0Zv2ACw7Esh6pPUphlvZG9x7uw=
 github.com/jsimonetti/rtnetlink v0.0.0-20190830100107-3784a6c7c552/go.mod h1:Oz+70psSo5OFh8DBl0Zv2ACw7Esh6pPUphlvZG9x7uw=
@@ -930,6 +943,7 @@ github.com/libp2p/go-eventbus v0.2.1 h1:VanAdErQnpTioN2TowqNcOijf6YwhuODe4pPKSDp
 github.com/libp2p/go-eventbus v0.2.1/go.mod h1:jc2S4SoEVPP48H9Wpzm5aiGwUCBMfGhVhhBjyhhCJs8=
 github.com/libp2p/go-flow-metrics v0.0.1/go.mod h1:Iv1GH0sG8DtYN3SVJ2eG221wMiNpZxBdp967ls1g+k8=
 github.com/libp2p/go-flow-metrics v0.0.2/go.mod h1:HeoSNUrOJVK1jEpDqVEiUOIXqhbnS27omG0uWU5slZs=
+github.com/libp2p/go-flow-metrics v0.0.3 h1:8tAs/hSdNvUiLgtlSy3mxwxWP4I9y/jlkPFT7epKdeM=
 github.com/libp2p/go-flow-metrics v0.0.3/go.mod h1:HeoSNUrOJVK1jEpDqVEiUOIXqhbnS27omG0uWU5slZs=
 github.com/libp2p/go-libp2p v0.0.2/go.mod h1:Qu8bWqFXiocPloabFGUcVG4kk94fLvfC8mWTDdFC9wE=
 github.com/libp2p/go-libp2p v0.0.30/go.mod h1:XWT8FGHlhptAv1+3V/+J5mEpzyui/5bvFsNuWYs611A=
@@ -1079,6 +1093,8 @@ github.com/libp2p/go-libp2p-pubsub v0.3.5-0.20200820194335-bfc96c2cd081 h1:OYGkX
 github.com/libp2p/go-libp2p-pubsub v0.3.5-0.20200820194335-bfc96c2cd081/go.mod h1:DTMSVmZZfXodB/pvdTGrY2eHPZ9W2ev7hzTH83OKHrI=
 github.com/libp2p/go-libp2p-pubsub v0.3.5 h1:iF75GWpcxKEUQU8tTkgLy69qIQvfhL+t6U6ndQrB6ho=
 github.com/libp2p/go-libp2p-pubsub v0.3.5/go.mod h1:DTMSVmZZfXodB/pvdTGrY2eHPZ9W2ev7hzTH83OKHrI=
+github.com/libp2p/go-libp2p-pubsub v0.3.6-0.20200901174250-06a12f17b7de h1:Dl0B0x6u+OSKXAa1DeB6xHFsUOBAhjrXJ10zykVSN6Q=
+github.com/libp2p/go-libp2p-pubsub v0.3.6-0.20200901174250-06a12f17b7de/go.mod h1:DTMSVmZZfXodB/pvdTGrY2eHPZ9W2ev7hzTH83OKHrI=
 github.com/libp2p/go-libp2p-quic-transport v0.1.1/go.mod h1:wqG/jzhF3Pu2NrhJEvE+IE0NTHNXslOPn9JQzyCAxzU=
 github.com/libp2p/go-libp2p-quic-transport v0.3.7/go.mod h1:Kr4aDtnfHHNeENn5J+sZIVc+t8HpQn9W6BOxhVGHbgI=
 github.com/libp2p/go-libp2p-quic-transport v0.5.0/go.mod h1:IEcuC5MLxvZ5KuHKjRu+dr3LjCT1Be3rcD/4d8JrX8M=

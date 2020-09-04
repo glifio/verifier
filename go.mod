@@ -10,7 +10,7 @@ replace github.com/filecoin-project/sector-storage => github.com/filecoin-projec
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible // indirect
-	github.com/filecoin-project/lotus v0.5.8-0.20200901090926-b8bbbf3ea3b1 // indirect
+	github.com/filecoin-project/lotus v0.5.11-0.20200904163226-52ce80f2b442 // indirect
 	github.com/gin-contrib/cors v1.3.1 // indirect
 	github.com/gin-gonic/gin v1.6.3 // indirect
 	github.com/guregu/dynamo v1.8.0 // indirect
