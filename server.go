@@ -258,7 +258,7 @@ func serveVerifyAccount(c *gin.Context) {
 		defer unlockUser(userID, UserLock_Verifier)
 
 		// Determine whether the Filecoin message succeeded
-		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Minute)
+		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 		defer cancel()
 
 		ok, err := lotusWaitMessageResult(ctx, cid)
@@ -490,7 +490,7 @@ func serveFaucet(c *gin.Context) {
 		defer unlockUser(userID, UserLock_Faucet)
 
 		// Determine whether the Filecoin message succeeded
-		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Minute)
+		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 		defer cancel()
 
 		ok, err := lotusWaitMessageResult(ctx, cid)
