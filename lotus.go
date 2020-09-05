@@ -43,7 +43,7 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 		return cid.Cid{}, err
 	}
 
-	api, closer, err := lotusGetFullNodeAPI(ctx)
+	lapi, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return cid.Cid{}, err
 	}
@@ -56,12 +56,11 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 		Params: params,
 	}
 
-	msgWGas, err := lotusEstimateMsgGas(ctx, api, msg)
-	if err != nil {
-		return cid.Cid{}, err
+	sendSpec := &api.MessageSendSpec{
+		MaxFee: types.BigInt(env.MaxFee),
 	}
 
-	smsg, err := api.MpoolPushMessage(ctx, msgWGas, nil)
+	smsg, err := lapi.MpoolPushMessage(ctx, msg, sendSpec)
 	if err != nil {
 		return cid.Cid{}, err
 	}
@@ -282,20 +281,18 @@ func lotusEstimateGasPremium(ctx context.Context, api api.FullNode, address addr
 	return gasPremium, nil
 }
 
-func lotusSendFIL(ctx context.Context, api api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
+func lotusSendFIL(ctx context.Context, lapi api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
 	msg := &types.Message{
 		From:  fromAddr,
 		To:    toAddr,
 		Value: types.BigInt(filAmount),
 	}
 
-	msgWGas, err := lotusEstimateMsgGas(ctx, api, msg)
-	if err != nil {
-		return cid.Cid{}, err
-
+	sendSpec := &api.MessageSendSpec{
+		MaxFee: types.BigInt(env.MaxFee),
 	}
 
-	sm, err := api.MpoolPushMessage(ctx, msgWGas, nil)
+	sm, err := lapi.MpoolPushMessage(ctx, msg, sendSpec)
 	if err != nil {
 		return cid.Cid{}, err
 	}

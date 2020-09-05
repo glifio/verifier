@@ -397,6 +397,8 @@ github.com/filecoin-project/lotus v0.5.8-0.20200903221953-ada5e6ae68cf/go.mod h1
 github.com/filecoin-project/lotus v0.5.8 h1:DZnJDyuqCrI9/eWqELr1jxXreYMI6Kn4wCVF7hjAXwQ=
 github.com/filecoin-project/lotus v0.5.11-0.20200904163226-52ce80f2b442 h1:RFGJqV8Q4RkvqBu1SKH1ygL1+RQK8qMc98QTV8DC6ZE=
 github.com/filecoin-project/lotus v0.5.11-0.20200904163226-52ce80f2b442/go.mod h1:VGF7AfUPxHJQFKVNYo3vcJZXhMEfsMA/5Rs6x6Y0BiY=
+github.com/filecoin-project/lotus v0.5.11-0.20200905131755-2adb80729b16 h1:h0xL675J3ACO9EeInrhyAvrIm/C3L7pLVYZzXuX1C+c=
+github.com/filecoin-project/lotus v0.5.11-0.20200905131755-2adb80729b16/go.mod h1:VGF7AfUPxHJQFKVNYo3vcJZXhMEfsMA/5Rs6x6Y0BiY=
 github.com/filecoin-project/sector-storage v0.0.0-20200508203401-a74812ba12f3/go.mod h1:B+xzopr/oWZJz2hBL5Ekb7Obcum5ntmfbaAUlaaho28=
 github.com/filecoin-project/sector-storage v0.0.0-20200522011946-a59ca7536a95 h1:wNpbsUY11P7+3yBfHOXsH+tAyferf1BVSe5S+HRm+7s=
 github.com/filecoin-project/sector-storage v0.0.0-20200522011946-a59ca7536a95/go.mod h1:1UpuWCUC7XNfgyufyQQq+/40JSzhfGdgcwauK55C8gk=
