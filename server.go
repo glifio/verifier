@@ -423,52 +423,9 @@ func serveFaucet(c *gin.Context) {
 		}
 	}
 
-	// returns an ID address if its a miner address, otherwise an empty address
-	minerAddr, err := lotusGetMinerAddr(ctx, api, targetAddr)
-	if err != nil && errors.Cause(err) != ErrNotMiner {
-		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner address for %v", targetAddr))
-		return
-	}
-
-	isMiner := !minerAddr.Empty()
-
-	// ensure the non-miner/new miner hasn't already gotten their non-miner faucet tx
-	if !isMiner && user.ReceivedNonMinerFaucetGrant {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrNonMinerOauthAttempt.Error()})
-		return
-	}
-
-	if isAddressBlocked(minerAddr) {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrAddressBlocked.Error()})
-		return
-	}
-
-	// assume this account is not a miner
-	owed := env.FaucetNonMinerGrant
-
-	if isMiner {
-		if user.HasRequestedFromFaucetAsMiner() {
-			if user.MostRecentMinerFaucetGrant.Add(env.FaucetRateLimit).After(time.Now()) {
-				c.JSON(http.StatusForbidden, gin.H{"error": fmt.Sprintf("miners may only use the faucet once every %v hours", env.FaucetRateLimit.Hours())})
-				return
-			}
-			owed = env.FaucetMinerGrant
-		} else {
-			owed = env.FaucetFirstTimeMinerGrant
-		}
-
-		worker, err := lotusGetMinerWorker(ctx, api, minerAddr)
-		if err != nil {
-			setError(c, http.StatusInternalServerError, errors.Wrapf(err, "getting miner worker for %v", minerAddr))
-			return
-		}
-
-		targetAddr = worker
-	}
-
-	cid, err := lotusSendFIL(ctx, api, faucetAddr, targetAddr, owed)
+	cid, err := lotusSendFIL(ctx, api, faucetAddr, targetAddr, env.FaucetNonMinerGrant)
 	if err != nil {
-		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v from %v to %v", owed, faucetAddr, targetAddr))
+		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v from %v to %v", env.FaucetNonMinerGrant, faucetAddr, targetAddr))
 		return
 	}
 
@@ -482,7 +439,7 @@ func serveFaucet(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, Response{
 		Cid:     cid.String(),
-		Sent:    owed.String(),
+		Sent:    env.FaucetNonMinerGrant.String(),
 		Address: targetAddr.String(),
 	})
 
@@ -505,11 +462,8 @@ func serveFaucet(c *gin.Context) {
 
 		user.MostRecentFaucetGrantCid = cid.String()
 		user.MostRecentFaucetAddress = targetAddrStr
-		if !minerAddr.Empty() {
-			user.MostRecentMinerFaucetGrant = time.Now()
-		} else {
-			user.ReceivedNonMinerFaucetGrant = true
-		}
+		// we're using this db variable for now to track all users to stay backwards compat w space race
+		user.ReceivedNonMinerFaucetGrant = true
 
 		err = saveUser(user)
 		if err != nil {
