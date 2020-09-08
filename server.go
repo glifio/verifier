@@ -369,6 +369,7 @@ func serveFaucet(c *gin.Context) {
 
 	if user.ReceivedNonMinerFaucetGrant {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrFaucetRepeatAttempt.Error()})
+		return
 	}
 
 	// This helps us keep the user locked while we wait to see if the message was successful.  If
