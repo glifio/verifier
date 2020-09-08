@@ -310,64 +310,6 @@ func lotusTranslateError(err *error) {
 	}
 }
 
-func lotusGetMinerAddr(ctx context.Context, api api.FullNode, addr address.Address) (_ address.Address, err error) {
-	defer withStack(&err)
-	defer lotusTranslateError(&err)
-
-	if addr.Protocol() != address.ID {
-		// if this call errs, we're not gonna check explicit err messages
-		// just assume this is not a miner
-		idAddr, err := api.StateLookupID(ctx, addr, types.EmptyTSK)
-		if err != nil {
-			return address.Undef, ErrNotMiner
-		}
-
-		return lotusGetMinerAddr(ctx, api, idAddr)
-	}
-
-	actor, err := api.StateGetActor(ctx, addr, types.EmptyTSK)
-	if err != nil {
-		return address.Undef, err
-	} else if actor.Code != builtin.StorageMinerActorCodeID {
-		return address.Undef, nil
-	}
-	return addr, nil
-}
-
-func lotusGetMinerWorker(ctx context.Context, api api.FullNode, maddr address.Address) (_ address.Address, err error) {
-	defer withStack(&err)
-	defer lotusTranslateError(&err)
-
-	minerInfo, err := api.StateMinerInfo(ctx, maddr, types.EmptyTSK)
-	if err != nil {
-		return address.Undef, err
-	}
-
-	return minerInfo.Worker, nil
-}
-
-func lotusGetMinerPower(ctx context.Context, addr address.Address, tipsetKey types.TipSetKey) (_ *api.MinerPower, err error) {
-	defer withStack(&err)
-	defer lotusTranslateError(&err)
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer closer()
-
-	minerAddr, err := lotusGetMinerAddr(ctx, api, addr)
-	if err != nil {
-		return nil, err
-	}
-
-	power, err := api.StateMinerPower(ctx, minerAddr, tipsetKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return power, nil
-}
-
 func lotusWaitMessageResult(ctx context.Context, cid cid.Cid) (bool, error) {
 	client, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {

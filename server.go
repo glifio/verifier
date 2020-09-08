@@ -59,7 +59,7 @@ var (
 	ErrSufficientAllowance  = errors.New("allowance is already sufficient")
 	ErrAllocatedTooRecently = errors.New("you must wait 30 days in between reallocations")
 	ErrStaleJWT             = errors.New("The network has reset since your last visit. Please click the retry button above.")
-	ErrNonMinerOauthAttempt = errors.New("This GitHub account has already used the faucet with a non-miner Filecoin address. Please try again with your Miner ID.")
+	ErrFaucetRepeatAttempt  = errors.New("This GitHub account has already used the faucet.")
 	ErrUserLocked           = errors.New("We're still waiting for your previous transaction to finalize.")
 	ErrAddressBlocked       = errors.New("This address or Miner ID has reached its maximum usage of the faucet.")
 )
@@ -365,6 +365,10 @@ func serveFaucet(c *gin.Context) {
 	if user.Locked_Faucet {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
+	}
+
+	if user.ReceivedNonMinerFaucetGrant {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrFaucetRepeatAttempt.Error()})
 	}
 
 	// This helps us keep the user locked while we wait to see if the message was successful.  If
