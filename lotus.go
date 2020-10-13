@@ -11,6 +11,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-jsonrpc"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/apibstore"
 	"github.com/filecoin-project/lotus/api/client"
@@ -18,7 +19,7 @@ import (
 	"github.com/filecoin-project/lotus/chain/actors"
 	"github.com/filecoin-project/lotus/chain/types"
 	lcli "github.com/filecoin-project/lotus/cli"
-	big "github.com/filecoin-project/specs-actors/v2/actors/abi/big"
+	builtin0 "github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/filecoin-project/specs-actors/v2/actors/builtin"
 	"github.com/filecoin-project/specs-actors/v2/actors/builtin/verifreg"
 	"github.com/ipfs/go-cid"
@@ -52,7 +53,7 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 	msg := &types.Message{
 		To:     builtin.VerifiedRegistryActorAddr,
 		From:   env.LotusVerifierAddr,
-		Method: builtin.MethodsVerifiedRegistry.AddVerifiedClient,
+		Method: builtin0.MethodsVerifiedRegistry.AddVerifiedClient,
 		Params: params,
 	}
 

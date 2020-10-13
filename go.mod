@@ -2,6 +2,8 @@ module github.com/openworklabs/oauthserver
 
 go 1.14
 
+replace github.com/filecoin-project/filecoin-ffi => ./filecoin-ffi
+
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/aws/aws-sdk-go v1.32.11
@@ -10,7 +12,8 @@ require (
 	github.com/filecoin-project/go-address v0.0.5-0.20201013120618-9dfb096d952e
 	github.com/filecoin-project/go-jsonrpc v0.1.2-0.20201008195726-68c6a2704e49
 	github.com/filecoin-project/lotus v0.10.1-0.20201013201124-d5cea9f402b0
-	github.com/filecoin-project/specs-actors/v2 v2.1.1-0.20201013041438-6c71cf5bdcd1 // indirect
+	github.com/filecoin-project/specs-actors v0.9.12
+	github.com/filecoin-project/specs-actors/v2 v2.1.0
 	github.com/filecoin-project/statediff v0.0.1 // indirect
 	github.com/filecoin-project/test-vectors v0.0.0-20201008144318-a8f968adeba1 // indirect
 	github.com/gin-contrib/cors v1.3.1
