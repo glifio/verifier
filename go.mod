@@ -4,6 +4,10 @@ go 1.14
 
 replace github.com/filecoin-project/filecoin-ffi => ./filecoin-ffi
 
+replace github.com/filecoin-project/fil-blst => ./fil-blst
+
+replace github.com/supranational/blst => ./fil-blst/blst
+
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/aws/aws-sdk-go v1.32.11
@@ -11,6 +15,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/filecoin-project/go-address v0.0.5-0.20201013120618-9dfb096d952e
 	github.com/filecoin-project/go-jsonrpc v0.1.2-0.20201008195726-68c6a2704e49
+	github.com/filecoin-project/go-state-types v0.0.0-20201003010437-c33112184a2b
 	github.com/filecoin-project/lotus v0.10.1-0.20201013201124-d5cea9f402b0
 	github.com/filecoin-project/specs-actors v0.9.12
 	github.com/filecoin-project/specs-actors/v2 v2.1.0
