@@ -11,16 +11,17 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-jsonrpc"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/apibstore"
 	"github.com/filecoin-project/lotus/api/client"
 	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/actors"
 	"github.com/filecoin-project/lotus/chain/types"
-	lcli "github.com/filecoin-project/lotus/cli"
-	big "github.com/filecoin-project/specs-actors/actors/abi/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin"
-	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
+	cliutil "github.com/filecoin-project/lotus/cli/util"
+	builtin0 "github.com/filecoin-project/specs-actors/actors/builtin"
+	"github.com/filecoin-project/specs-actors/v2/actors/builtin"
+	"github.com/filecoin-project/specs-actors/v2/actors/builtin/verifreg"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
 	cbor "github.com/ipfs/go-ipld-cbor"
@@ -52,7 +53,7 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 	msg := &types.Message{
 		To:     builtin.VerifiedRegistryActorAddr,
 		From:   env.LotusVerifierAddr,
-		Method: builtin.MethodsVerifiedRegistry.AddVerifiedClient,
+		Method: builtin0.MethodsVerifiedRegistry.AddVerifiedClient,
 		Params: params,
 	}
 
@@ -67,12 +68,12 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 	return smsg.Cid(), nil
 }
 
-type AddrAndDataCap struct {
+type addrAndDataCap struct {
 	Address address.Address
 	DataCap verifreg.DataCap
 }
 
-func lotusListVerifiers(ctx context.Context) ([]AddrAndDataCap, error) {
+func lotusListVerifiers(ctx context.Context) ([]addrAndDataCap, error) {
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return nil, err
@@ -97,7 +98,7 @@ func lotusListVerifiers(ctx context.Context) ([]AddrAndDataCap, error) {
 		return nil, err
 	}
 
-	var resp []AddrAndDataCap
+	var resp []addrAndDataCap
 
 	err = vh.ForEach(ctx, func(k string, val interface{}) error {
 		addr, err := address.NewFromBytes([]byte(k))
@@ -109,13 +110,13 @@ func lotusListVerifiers(ctx context.Context) ([]AddrAndDataCap, error) {
 		if err := dcap.UnmarshalCBOR(bytes.NewReader(val.(*cbg.Deferred).Raw)); err != nil {
 			return err
 		}
-		resp = append(resp, AddrAndDataCap{addr, dcap})
+		resp = append(resp, addrAndDataCap{addr, dcap})
 		return nil
 	})
 	return resp, err
 }
 
-func lotusListVerifiedClients(ctx context.Context) ([]AddrAndDataCap, error) {
+func lotusListVerifiedClients(ctx context.Context) ([]addrAndDataCap, error) {
 	api, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
 		return nil, err
@@ -140,7 +141,7 @@ func lotusListVerifiedClients(ctx context.Context) ([]AddrAndDataCap, error) {
 		return nil, err
 	}
 
-	var resp []AddrAndDataCap
+	var resp []addrAndDataCap
 	err = vh.ForEach(ctx, func(k string, val interface{}) error {
 		addr, err := address.NewFromBytes([]byte(k))
 		if err != nil {
@@ -151,7 +152,7 @@ func lotusListVerifiedClients(ctx context.Context) ([]AddrAndDataCap, error) {
 		if err := dcap.UnmarshalCBOR(bytes.NewReader(val.(*cbg.Deferred).Raw)); err != nil {
 			return err
 		}
-		resp = append(resp, AddrAndDataCap{addr, dcap})
+		resp = append(resp, addrAndDataCap{addr, dcap})
 		return nil
 
 	})
@@ -228,7 +229,7 @@ func lotusCheckVerifierRemainingBytes(ctx context.Context, targetAddr string) (b
 
 func lotusGetFullNodeAPI(ctx context.Context) (apiClient api.FullNode, closer jsonrpc.ClientCloser, err error) {
 	err = retry(ctx, func() error {
-		ainfo := lcli.APIInfo{Token: []byte(env.LotusAPIToken)}
+		ainfo := cliutil.APIInfo{Token: []byte(env.LotusAPIToken)}
 
 		var innerErr error
 		apiClient, closer, innerErr = client.NewFullNodeRPC(ctx, env.LotusAPIDialAddr, ainfo.AuthHeader())
@@ -299,14 +300,14 @@ func lotusSendFIL(ctx context.Context, lapi api.FullNode, fromAddr, toAddr addre
 	return sm.Cid(), nil
 }
 
-var ErrNotMiner = errors.New("not a miner")
+var errNotMiner = errors.New("not a miner")
 
 func lotusTranslateError(err *error) {
 	if *err == nil {
 		return
 	}
 	if strings.Contains((*err).Error(), "not found") {
-		*err = ErrNotMiner
+		*err = errNotMiner
 	}
 }
 

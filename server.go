@@ -10,7 +10,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
-	big "github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
