@@ -2,13 +2,11 @@ FROM rust:1.44-buster AS builder-filecoin-ffi
 
 RUN apt update
 RUN apt install -y make git bash jq opencl-headers
+WORKDIR /
 ADD ./fil-blst ./fil-blst/
-# need to run ./build.sh script here?
+# RUN cd fil-blst && ./build.sh && cd ../
 ADD ./filecoin-ffi ./filecoin-ffi/
-WORKDIR /filecoin-ffi
-RUN make
-
-
+RUN cd filecoin-ffi && make && cd ../
 
 FROM golang:1.14.4-buster AS builder-verifier
 
