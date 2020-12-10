@@ -43,7 +43,7 @@ func main() {
 	}))
 
 	router.POST("/oauth/:provider", serveOauth, handleError("/oauth"))
-	router.POST("/verify", serveVerifyAccount)
+	router.POST("/verify/:target_addr", serveVerifyAccount)
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
@@ -159,16 +159,8 @@ func serveOauth(c *gin.Context) {
 }
 
 func serveVerifyAccount(c *gin.Context) {
-	type Request struct {
-		TargetAddr string `json:"targetAddr" binding:"required"`
-	}
-
-	var body Request
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
+	targetAddrStr := c.Param("target_addr")
+	
 	userID, err := getUserIDFromJWT(c)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -224,7 +216,7 @@ func serveVerifyAccount(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	remaining, err := lotusCheckAccountRemainingBytes(ctx, body.TargetAddr)
+	remaining, err := lotusCheckAccountRemainingBytes(ctx, targetAddrStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -240,7 +232,7 @@ func serveVerifyAccount(c *gin.Context) {
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	cid, err := lotusVerifyAccount(ctx, body.TargetAddr, owed.String())
+	cid, err := lotusVerifyAccount(ctx, targetAddrStr, owed.String())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -253,6 +245,7 @@ func serveVerifyAccount(c *gin.Context) {
 		Cid string `json:"cid"`
 	}
 	c.JSON(http.StatusOK, Response{Cid: cid.String()})
+
 
 	go func() {
 		defer unlockUser(userID, UserLock_Verifier)
@@ -271,7 +264,7 @@ func serveVerifyAccount(c *gin.Context) {
 			return
 		}
 
-		user.VerifiedFilecoinAddress = body.TargetAddr
+		user.VerifiedFilecoinAddress = targetAddrStr
 		if ok {
 			user.MostRecentAllocation = time.Now()
 		}
