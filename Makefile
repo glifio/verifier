@@ -9,3 +9,6 @@ build:
 
 push:
 	docker push openworklabs/verifier
+
+run:
+	docker run --env-file env.list -d -p 8080:8080 --name verifier --restart always glif/verifier:0.0.3
