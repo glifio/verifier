@@ -50,22 +50,35 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr str
 	}
 	defer closer()
 
+	nonce, err := lapi.MpoolGetNonce(ctx, VerifierAddr)
+
 	msg := &types.Message{
 		To:     builtin.VerifiedRegistryActorAddr,
-		From:   env.LotusVerifierAddr,
+		From:   VerifierAddr,
 		Method: builtin0.MethodsVerifiedRegistry.AddVerifiedClient,
 		Params: params,
+		Nonce: nonce,
 	}
 
 	sendSpec := &api.MessageSendSpec{
 		MaxFee: types.BigInt(env.MaxFee),
 	}
 
-	smsg, err := lapi.MpoolPushMessage(ctx, msg, sendSpec)
+	msgWithGas, err := lapi.GasEstimateMessageGas(ctx, msg, sendSpec, types.EmptyTSK)
 	if err != nil {
 		return cid.Cid{}, err
 	}
-	return smsg.Cid(), nil
+
+	sig, err := walletSignMessage(ctx, VerifierAddr, msgWithGas.Cid().Bytes(), api.MsgMeta{Type: api.MTUnknown})
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	mCid, err := lapi.MpoolPush(ctx, &types.SignedMessage{Signature: *sig, Message: *msgWithGas})
+	if err != nil {
+		return cid.Cid{}, err
+	}
+	return mCid, nil
 }
 
 type addrAndDataCap struct {
@@ -236,50 +249,6 @@ func lotusGetFullNodeAPI(ctx context.Context) (apiClient api.FullNode, closer js
 		return innerErr
 	})
 	return
-}
-
-func lotusCheckBalance(ctx context.Context, address address.Address) (types.FIL, error) {
-	api, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		return types.FIL{}, err
-	}
-	defer closer()
-
-	balance, err := api.WalletBalance(ctx, address)
-	if err != nil {
-		return types.FIL{}, err
-	}
-	return types.FIL(balance), nil
-}
-
-func lotusEstimateMsgGas(ctx context.Context, lapi api.FullNode, msg *types.Message) (*types.Message, error) {
-	sendSpec := &api.MessageSendSpec{
-		MaxFee: types.BigInt(env.MaxFee),
-	}
-
-	msg, err := lapi.GasEstimateMessageGas(ctx, msg, sendSpec, types.EmptyTSK)
-
-	if err != nil {
-		return &types.Message{}, err
-	}
-
-	return msg, nil
-}
-
-func lotusEstimateGasLimit(ctx context.Context, api api.FullNode, msg *types.Message) (int64, error) {
-	gasLimit, err := api.GasEstimateGasLimit(ctx, msg, types.EmptyTSK)
-	if err != nil {
-		return 0, err
-	}
-	return gasLimit, nil
-}
-
-func lotusEstimateGasPremium(ctx context.Context, api api.FullNode, address address.Address, gasLimit int64) (types.BigInt, error) {
-	gasPremium, err := api.GasEstimateGasPremium(ctx, 0, address, gasLimit, types.EmptyTSK)
-	if err != nil {
-		return types.NewInt(0), err
-	}
-	return gasPremium, nil
 }
 
 func lotusSendFIL(ctx context.Context, lapi api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
