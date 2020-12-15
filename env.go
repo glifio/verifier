@@ -10,6 +10,16 @@ import (
 	"github.com/filecoin-project/lotus/chain/types"
 )
 
+// Mode allows the backend to run in only verifier or faucet mode
+type Mode string
+const (
+	// FaucetMode runs just the faucet
+	FaucetMode Mode = "FAUCET"
+	// VerifierMode runs just the verifier
+	VerifierMode Mode = "VERIFIER"
+)
+
+// Env exports
 type Env struct {
 	Port                      string          `env:"PORT" envDefault:"8080"`
 	JWTSecret                 string          `env:"JWT_SECRET,required"`
@@ -19,20 +29,21 @@ type Env struct {
 	DynamodbTableName         string          `env:"DYNAMODB_TABLE_NAME,required"`
 	LotusAPIDialAddr          string          `env:"LOTUS_API_DIAL_ADDR,required"`
 	LotusAPIToken             string          `env:"LOTUS_API_TOKEN,required"`
-	LotusVerifierAddr         address.Address `env:"LOTUS_VERIFIER_ADDR,required"`
+	BlockedAddresses          string          `env:"BLOCKED_ADDRESSES"`
 	GithubClientID            string          `env:"GITHUB_CLIENT_ID,required"`
 	GithubClientSecret        string          `env:"GITHUB_CLIENT_SECRET,required"`
-	VerifierMinAccountAgeDays uint            `env:"VERIFIER_MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
-	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
-	FaucetAddr                address.Address `env:"FAUCET_ADDR"`
-	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
-	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
-	FaucetNonMinerGrant       types.FIL       `env:"FAUCET_NON_MINER_RATE" envDefault:"100fil"`
-	FaucetFirstTimeMinerGrant types.FIL       `env:"FAUCET_FIRST_TIME_MINER_GRANT" envDefault:"1000fil"`
-	FaucetMinerGrant          types.FIL       `env:"FAUCET_MINER_GRANT" envDefault:"500fil"`
 	MaxFee                    types.FIL       `env:"MAX_FEE" envDefault:"0afil"`
-	FaucetMinAccountAge       time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"336h"`
-	PathToBlocklistTxtFile    string          `env:"PATH_TO_BLOCKLIST_TXT_FILE"`
+	Mode                      Mode            `env:"MODE"`
+	// verifier specific env vars
+	VerifierPrivateKey        string          `env:"VERIFIER_PK"`
+	VerifierMinAccountAgeDays uint            `env:"VERIFIER_MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
+	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
+	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
+	// faucet specific env vars
+	FaucetPrivateKey          string          `env:"FAUCET_PK"`
+	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
+	FaucetGrantSize           types.FIL       `env:"FAUCET_GRANT_SIZE" envDefault:"10fil"`
+	FaucetMinAccountAgeDays   uint            `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"180"`
 }
 
 var env Env
