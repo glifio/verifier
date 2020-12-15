@@ -29,25 +29,21 @@ type Env struct {
 	DynamodbTableName         string          `env:"DYNAMODB_TABLE_NAME,required"`
 	LotusAPIDialAddr          string          `env:"LOTUS_API_DIAL_ADDR,required"`
 	LotusAPIToken             string          `env:"LOTUS_API_TOKEN,required"`
-	PathToBlocklistTxtFile    string          `env:"PATH_TO_BLOCKLIST_TXT_FILE"`
+	BlockedAddresses    			string          `env:"BLOCKED_ADDRESSES"`
 	GithubClientID            string          `env:"GITHUB_CLIENT_ID,required"`
 	GithubClientSecret        string          `env:"GITHUB_CLIENT_SECRET,required"`
 	MaxFee                    types.FIL       `env:"MAX_FEE" envDefault:"0afil"`
 	Mode											Mode						`env:"MODE"`
 	// verifier specific env vars
-	LotusVerifierAddr         address.Address `env:"LOTUS_VERIFIER_ADDR"`
 	VerifierPrivateKey				string					`env:"VERIFIER_PK"`
 	VerifierMinAccountAgeDays uint            `env:"VERIFIER_MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
 	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
 	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
 	// faucet specific env vars
-	FaucetAddr                address.Address `env:"FAUCET_ADDR"`
 	FaucetPrivateKey					string					`env:"FAUCET_PK"`
 	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
-	FaucetNonMinerGrant       types.FIL       `env:"FAUCET_NON_MINER_RATE" envDefault:"100fil"`
-	FaucetFirstTimeMinerGrant types.FIL       `env:"FAUCET_FIRST_TIME_MINER_GRANT" envDefault:"1000fil"`
-	FaucetMinerGrant          types.FIL       `env:"FAUCET_MINER_GRANT" envDefault:"500fil"`
-	FaucetMinAccountAge       time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"336h"`
+	FaucetGrantSize       		types.FIL       `env:"FAUCET_GRANT_SIZE" envDefault:"10fil"`
+	FaucetMinAccountAgeDays   time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"180"`
 }
 
 var env Env

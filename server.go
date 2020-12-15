@@ -26,25 +26,13 @@ func registerVerifierHandlers(router *gin.Engine) {
 
 func main() {
 	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
-	fmt.Println("Time before miner can reup: ", env.FaucetRateLimit)
-	fmt.Println("Time before verifiers can reup: ", env.VerifierRateLimit)
-	fmt.Println("First time miner faucet amount: ", env.FaucetFirstTimeMinerGrant)
-	fmt.Println("Second time+ miner faucet amount: ", env.FaucetMinerGrant)
-	fmt.Println("Non miner amount: ", env.FaucetNonMinerGrant)
-	fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAge)
 	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
-	fmt.Println("Max fee: ", env.MaxFee)
+	fmt.Println("Max transaction fee: ", env.MaxFee)
 
-	err := initBlockListCache()
-	if err != nil {
-		fmt.Println("ERROR CREATING BLOCKLIST: ", err)
-	}
+	if err := initBlockListCache(); err != nil { log.Panic(err) }
+	if _, err := instantiateWallet(&gin.Context{}); err != nil { log.Panic(err) }
 	
 	router := gin.Default()
-	if _, err = instantiateWallet(&gin.Context{}); err != nil {
-		log.Panic("ERROR INSTANTIATING WALLET: ", err)
-	}
-
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST"},
@@ -57,10 +45,20 @@ func main() {
 	router.POST("/oauth/:provider", serveOauth, handleError("/oauth"))
 
 	if env.Mode == FaucetMode {
+		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
+		fmt.Println("Faucet min GH account age days: ", env.FaucetMinAccountAgeDays)
 		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
 	} else if env.Mode == VerifierMode {
+		fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
+		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
+		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
 		registerVerifierHandlers(router)
 	} else {
+		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
+		fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAgeDays)
+		fmt.Println("Verifier min GH account age: ", env.VerifierMinAccountAgeDays)
+		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
+		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
 		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
 		registerVerifierHandlers(router)
 	}
@@ -104,13 +102,6 @@ func handleError(route string) gin.HandlerFunc {
 			log.Printf("%v error: %+v", route, err)
 		}
 	}
-}
-
-func serveWallet(c *gin.Context) {
-	type Response struct {
-	}
-
-	c.JSON(http.StatusOK, Response{})
 }
 
 func serveOauth(c *gin.Context) {
@@ -181,8 +172,6 @@ func serveOauth(c *gin.Context) {
 }
 
 func serveVerifyAccount(c *gin.Context) {
-	targetAddrStr := c.Param("target_addr")
-	
 	userID, err := getUserIDFromJWT(c)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -204,20 +193,7 @@ func serveVerifyAccount(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
 	}
-
-	// Ensure that the user's account is old enough
-	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
-	if !user.HasAccountOlderThan(minAccountAge) {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
-		return
-	}
-
-	// Ensure that the user hasn't asked for more allocation too recently
-	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
-		return
-	}
-
+	
 	// This helps us keep the user locked while we wait to see if the message was successful.  If
 	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
 	var successfullySubmittedMessage bool
@@ -234,6 +210,24 @@ func serveVerifyAccount(c *gin.Context) {
 		}
 	}()
 
+	targetAddrStr := c.Param("target_addr")
+
+	// Ensure that the user's account is old enough
+	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
+	// No account less than MinAccountAge is allowed any FIL
+	if !user.HasAccountOlderThan(minAccountAge) {
+		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
+		return
+	}
+
+	// Ensure that the user hasn't asked for more allocation too recently
+	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
+		return
+	}
+
 	// Ensure that the user is actually owed bytes
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -247,6 +241,17 @@ func serveVerifyAccount(c *gin.Context) {
 	owed := big.Sub(env.MaxAllowanceBytes, remaining)
 	if big.Cmp(owed, big.NewInt(0)) <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "you have verified data already, Greedy McRichbags"})
+		return
+	}
+
+	targetAddr, err := address.NewFromString(targetAddrStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if isAddressBlocked(targetAddr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrAddressBlocked.Error()})
 		return
 	}
 
@@ -286,10 +291,10 @@ func serveVerifyAccount(c *gin.Context) {
 			return
 		}
 
-		user.VerifiedFilecoinAddress = targetAddrStr
-		if ok {
-			user.MostRecentAllocation = time.Now()
-		}
+		user.MostRecentDataCapCid = cid.String()
+		user.MostRecentVerifiedAddress = targetAddrStr
+		user.MostRecentAllocation = time.Now()
+
 		err = saveUser(user)
 		if err != nil {
 			log.Println("error saving user:", err)
@@ -382,7 +387,7 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	if user.ReceivedNonMinerFaucetGrant {
+	if user.ReceivedFaucetGrant {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrFaucetRepeatAttempt.Error()})
 		return
 	}
@@ -405,8 +410,9 @@ func serveFaucet(c *gin.Context) {
 
 	targetAddrStr := c.Param("target_addr")
 
+	minAccountAge := time.Duration(env.FaucetMinAccountAgeDays) * 24 * time.Hour
 	// No account less than MinAccountAge is allowed any FIL
-	if !user.HasAccountOlderThan(env.FaucetMinAccountAge) {
+	if !user.HasAccountOlderThan(minAccountAge) {
 		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
 		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
@@ -434,9 +440,9 @@ func serveFaucet(c *gin.Context) {
 	}
 	defer closer()
 
-	cid, err := lotusSendFIL(context.TODO(), api, FaucetAddr, targetAddr, env.FaucetNonMinerGrant)
+	cid, err := lotusSendFIL(context.TODO(), api, FaucetAddr, targetAddr, env.FaucetGrantSize)
 	if err != nil {
-		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v from %v to %v", env.FaucetNonMinerGrant, FaucetAddr, targetAddr))
+		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v from %v to %v", env.FaucetGrantSize, FaucetAddr, targetAddr))
 		return
 	}
 
@@ -450,7 +456,7 @@ func serveFaucet(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, Response{
 		Cid:     cid.String(),
-		Sent:    env.FaucetNonMinerGrant.String(),
+		Sent:    env.FaucetGrantSize.String(),
 		Address: targetAddr.String(),
 	})
 
@@ -473,8 +479,7 @@ func serveFaucet(c *gin.Context) {
 
 		user.MostRecentFaucetGrantCid = cid.String()
 		user.MostRecentFaucetAddress = targetAddrStr
-		// we're using this db variable for now to track all users to stay backwards compat w space race
-		user.ReceivedNonMinerFaucetGrant = true
+		user.ReceivedFaucetGrant = true
 
 		err = saveUser(user)
 		if err != nil {
