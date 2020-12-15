@@ -16,11 +16,11 @@ type User struct {
 	ID                          string
 	Accounts                    map[string]AccountData
 	MostRecentAllocation        time.Time
-	MostRecentDataCapCid				string
-	MostRecentVerifiedAddress 	string
+	MostRecentDataCapCid        string
+	MostRecentVerifiedAddress   string
 	MostRecentFaucetGrantCid    string
 	MostRecentFaucetAddress     string
-	ReceivedFaucetGrant 				bool
+	ReceivedFaucetGrant         bool
 	Locked_Faucet               bool
 	Locked_Verifier             bool
 }

@@ -29,20 +29,20 @@ type Env struct {
 	DynamodbTableName         string          `env:"DYNAMODB_TABLE_NAME,required"`
 	LotusAPIDialAddr          string          `env:"LOTUS_API_DIAL_ADDR,required"`
 	LotusAPIToken             string          `env:"LOTUS_API_TOKEN,required"`
-	BlockedAddresses    			string          `env:"BLOCKED_ADDRESSES"`
+	BlockedAddresses          string          `env:"BLOCKED_ADDRESSES"`
 	GithubClientID            string          `env:"GITHUB_CLIENT_ID,required"`
 	GithubClientSecret        string          `env:"GITHUB_CLIENT_SECRET,required"`
 	MaxFee                    types.FIL       `env:"MAX_FEE" envDefault:"0afil"`
-	Mode											Mode						`env:"MODE"`
+	Mode                      Mode            `env:"MODE"`
 	// verifier specific env vars
-	VerifierPrivateKey				string					`env:"VERIFIER_PK"`
+	VerifierPrivateKey        string          `env:"VERIFIER_PK"`
 	VerifierMinAccountAgeDays uint            `env:"VERIFIER_MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
 	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
 	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
 	// faucet specific env vars
-	FaucetPrivateKey					string					`env:"FAUCET_PK"`
+	FaucetPrivateKey          string          `env:"FAUCET_PK"`
 	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
-	FaucetGrantSize       		types.FIL       `env:"FAUCET_GRANT_SIZE" envDefault:"10fil"`
+	FaucetGrantSize           types.FIL       `env:"FAUCET_GRANT_SIZE" envDefault:"10fil"`
 	FaucetMinAccountAgeDays   time.Duration   `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"180"`
 }
 
