@@ -41,7 +41,10 @@ func main() {
 	}
 	
 	router := gin.Default()
-	instantiateWallet(&gin.Context{})
+	if _, err = instantiateWallet(&gin.Context{}); err != nil {
+		log.Panic("ERROR INSTANTIATING WALLET: ", err)
+	}
+
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST"},
@@ -62,7 +65,6 @@ func main() {
 		registerVerifierHandlers(router)
 	}
 
-	router.GET("/wallet", serveWallet)
 	router.Run(":" + env.Port)
 }
 
@@ -432,18 +434,9 @@ func serveFaucet(c *gin.Context) {
 	}
 	defer closer()
 
-	faucetAddr := env.FaucetAddr
-	if faucetAddr == (address.Address{}) {
-		faucetAddr, err = api.WalletDefaultAddress(ctx)
-		if err != nil {
-			setError(c, http.StatusInternalServerError, errors.Wrap(err, "getting wallet default address"))
-			return
-		}
-	}
-
-	cid, err := lotusSendFIL(ctx, api, faucetAddr, targetAddr, env.FaucetNonMinerGrant)
+	cid, err := lotusSendFIL(context.TODO(), api, FaucetAddr, targetAddr, env.FaucetNonMinerGrant)
 	if err != nil {
-		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v from %v to %v", env.FaucetNonMinerGrant, faucetAddr, targetAddr))
+		setError(c, http.StatusInternalServerError, errors.Wrapf(err, "sending %v from %v to %v", env.FaucetNonMinerGrant, FaucetAddr, targetAddr))
 		return
 	}
 

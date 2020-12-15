@@ -283,21 +283,36 @@ func lotusEstimateGasPremium(ctx context.Context, api api.FullNode, address addr
 }
 
 func lotusSendFIL(ctx context.Context, lapi api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
+	nonce, err := lapi.MpoolGetNonce(ctx, fromAddr)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
 	msg := &types.Message{
 		From:  fromAddr,
 		To:    toAddr,
 		Value: types.BigInt(filAmount),
+		Nonce: nonce,
 	}
 
 	sendSpec := &api.MessageSendSpec{
 		MaxFee: types.BigInt(env.MaxFee),
 	}
 
-	sm, err := lapi.MpoolPushMessage(ctx, msg, sendSpec)
+	msgWithGas, err := lapi.GasEstimateMessageGas(ctx, msg, sendSpec, types.EmptyTSK)
 	if err != nil {
 		return cid.Cid{}, err
 	}
-	return sm.Cid(), nil
+	sig, err := walletSignMessage(ctx, fromAddr, msgWithGas.Cid().Bytes(), api.MsgMeta{Type: api.MTUnknown})
+	if err != nil {
+		return cid.Cid{}, err
+	}
+
+	mCid, err := lapi.MpoolPush(ctx, &types.SignedMessage{Signature: *sig, Message: *msgWithGas})
+	if err != nil {
+		return cid.Cid{}, err
+	}
+	return mCid, nil
 }
 
 var errNotMiner = errors.New("not a miner")
