@@ -16,6 +16,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+func registerVerifierHandlers(router *gin.Engine) {
+	router.POST("/verify/:target_addr", serveVerifyAccount)
+	router.GET("/verifiers", serveListVerifiers)
+	router.GET("/verified-clients", serveListVerifiedClients)
+	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
+	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
+}
+
 func main() {
 	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
 	fmt.Println("Time before miner can reup: ", env.FaucetRateLimit)
@@ -31,8 +39,9 @@ func main() {
 	if err != nil {
 		fmt.Println("ERROR CREATING BLOCKLIST: ", err)
 	}
-
+	
 	router := gin.Default()
+	instantiateWallet(&gin.Context{})
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST"},
@@ -43,13 +52,17 @@ func main() {
 	}))
 
 	router.POST("/oauth/:provider", serveOauth, handleError("/oauth"))
-	router.POST("/verify/:target_addr", serveVerifyAccount)
-	router.GET("/verifiers", serveListVerifiers)
-	router.GET("/verified-clients", serveListVerifiedClients)
-	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
-	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
-	router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
 
+	if env.Mode == FaucetMode {
+		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
+	} else if env.Mode == VerifierMode {
+		registerVerifierHandlers(router)
+	} else {
+		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
+		registerVerifierHandlers(router)
+	}
+
+	router.GET("/wallet", serveWallet)
 	router.Run(":" + env.Port)
 }
 
@@ -89,6 +102,13 @@ func handleError(route string) gin.HandlerFunc {
 			log.Printf("%v error: %+v", route, err)
 		}
 	}
+}
+
+func serveWallet(c *gin.Context) {
+	type Response struct {
+	}
+
+	c.JSON(http.StatusOK, Response{})
 }
 
 func serveOauth(c *gin.Context) {
