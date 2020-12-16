@@ -7,6 +7,9 @@ func initCounter() {
 }
 
 func reachedCounter() bool {
+	if env.MaxTotalAllocations == 0 {
+		return false
+	}
 	return count >= env.MaxTotalAllocations
 }
 

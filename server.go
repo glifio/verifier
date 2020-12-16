@@ -18,7 +18,9 @@ import (
 )
 
 func registerVerifierHandlers(router *gin.Engine) {
+	initCounter()
 	router.POST("/verify/:target_addr", serveVerifyAccount)
+	router.PUT("/verify/counter/:pwd", serveResetCounter)
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
