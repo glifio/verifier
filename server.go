@@ -11,13 +11,16 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
 
 func registerVerifierHandlers(router *gin.Engine) {
+	initCounter()
 	router.POST("/verify/:target_addr", serveVerifyAccount)
+	router.PUT("/verify/counter/:pwd", serveResetCounter)
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
@@ -69,12 +72,13 @@ func main() {
 var (
 	ErrUnsupportedProvider  = errors.New("unsupported oauth provider")
 	ErrUserTooNew           = errors.New("User account is too new.")
-	ErrSufficientAllowance  = errors.New("allowance is already sufficient")
-	ErrAllocatedTooRecently = errors.New("you must wait 30 days in between reallocations")
+	ErrVerifiedClientExists = errors.New("This Filecoin address is already a verified client. Please try again with a new Filecoin address.")
+	ErrAllocatedTooRecently = errors.New("You must wait 30 days in between reallocations")
 	ErrStaleJWT             = errors.New("The network has reset since your last visit. Please click the retry button above.")
 	ErrFaucetRepeatAttempt  = errors.New("This GitHub account has already used the faucet.")
 	ErrUserLocked           = errors.New("We're still waiting for your previous transaction to finalize.")
 	ErrAddressBlocked       = errors.New("This address or Miner ID has reached its maximum usage of the faucet.")
+	ErrCounterReached       = errors.New("This notary has run out of data cap for today! Come back tomorrow.")
 )
 
 type UserLock string
@@ -201,7 +205,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Lock the user for the duration of this operation
 	err = lockUser(userID, UserLock_Verifier)
 	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
 	}
 	defer func() {
@@ -210,13 +214,28 @@ func serveVerifyAccount(c *gin.Context) {
 		}
 	}()
 
+	reachedCount := reachedCounter()
+	if reachedCount {
+		slackNotification := "VERIFIER COUNTER REACHED: " + fmt.Sprint(env.MaxTotalAllocations)
+		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
+		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
+		return
+	}
+
+	dataCap, err := lotusCheckVerifierRemainingBytes(c, VerifierAddr.String())
+	fiftyDataCaps := types.BigMul(env.MaxAllowanceBytes, types.NewInt(50))
+	if dataCap.LessThanEqual(fiftyDataCaps) {
+		slackNotification := "LOW DATA CAP: " + dataCap.String()
+		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
+	}
+
 	targetAddrStr := c.Param("target_addr")
 
 	// Ensure that the user's account is old enough
 	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(minAccountAge) {
-		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
+		slackNotification := "Requester's ID:" + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
 		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
@@ -224,11 +243,13 @@ func serveVerifyAccount(c *gin.Context) {
 
 	// Ensure that the user hasn't asked for more allocation too recently
 	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
+		slackNotification := "Requester's ID:" + user.ID + "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation: " + user.MostRecentAllocation.String() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-reallocation-too-soon", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
 		return
 	}
 
-	// Ensure that the user is actually owed bytes
+	// Ensure that the user hasn't used this address before
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -237,10 +258,8 @@ func serveVerifyAccount(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	owed := big.Sub(env.MaxAllowanceBytes, remaining)
-	if big.Cmp(owed, big.NewInt(0)) <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "you have verified data already, Greedy McRichbags"})
+	if remaining.GreaterThan(big.NewInt(0)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": ErrVerifiedClientExists.Error()})
 		return
 	}
 
@@ -256,10 +275,11 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Allocate the bytes
-	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
+	incrementCounter()
+	ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
-	cid, err := lotusVerifyAccount(ctx, targetAddrStr, owed.String())
+	cid, err := lotusVerifyAccount(ctx, targetAddrStr, env.MaxAllowanceBytes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -283,11 +303,12 @@ func serveVerifyAccount(c *gin.Context) {
 
 		ok, err := lotusWaitMessageResult(ctx, cid)
 		if err != nil {
-			// This is already logged in lotusWaitMessageResult
+			slackNotification := "Requester's ID: " + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + " err " + err.Error() + "\n----------"
+			sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
 			return
 		} else if !ok {
-			// Transaction failed
-			log.Println("ERROR: verify transaction failed")
+			slackNotification := "Requester's ID: " + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + "\n----------"
+			sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
 			return
 		}
 
@@ -338,16 +359,10 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 		return
 	}
 
-	user, err := getUserByVerifiedFilecoinAddress(targetAddr)
-	if err != nil {
-		// no-op
-	}
-
 	type Response struct {
 		RemainingBytes       string    `json:"remainingBytes"`
-		MostRecentAllocation time.Time `json:"mostRecentAllocation"`
 	}
-	c.JSON(http.StatusOK, Response{dcap.String(), user.MostRecentAllocation})
+	c.JSON(http.StatusOK, Response{dcap.String()})
 }
 
 func serveCheckVerifierRemainingBytes(c *gin.Context) {
@@ -387,6 +402,7 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
+	// This can get deleted, along with the `ReceivedFaucetGrant` key in dynamo if the faucet policy changes away from 1 time use only
 	if user.ReceivedFaucetGrant {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrFaucetRepeatAttempt.Error()})
 		return
@@ -414,7 +430,7 @@ func serveFaucet(c *gin.Context) {
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(minAccountAge) {
 		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
+		sendSlackNotification("https://errors.glif.io/faucet-account-too-young", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}
@@ -516,4 +532,14 @@ func getUserIDFromJWT(c *gin.Context) (string, error) {
 		return "", err
 	}
 	return userID, nil
+}
+
+func serveResetCounter(c *gin.Context) {
+	password := c.Param("pwd")
+	if password != env.AllocationsCounterResetPword {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not allowed"})
+	}
+	resetCounter()
+	var i interface{}
+	c.JSON(http.StatusAccepted, i)
 }

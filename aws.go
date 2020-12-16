@@ -105,7 +105,7 @@ func getUserByVerifiedFilecoinAddress(filecoinAddr string) (User, error) {
 
 	var users []User
 	err := table.Scan().
-		Filter("VerifiedFilecoinAddress = ?", filecoinAddr).
+		Filter("MostRecentVerifiedAddress = ?", filecoinAddr).
 		Limit(1).
 		All(&users)
 	if err != nil {

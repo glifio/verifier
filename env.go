@@ -39,6 +39,8 @@ type Env struct {
 	VerifierMinAccountAgeDays uint            `env:"VERIFIER_MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
 	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
 	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
+	MaxTotalAllocations       uint            `env:"MAX_TOTAL_ALLOCATIONS" envDefault:"0"`
+	AllocationsCounterResetPword string       `env:"ALLOCATIONS_COUNTER_PWD"`
 	// faucet specific env vars
 	FaucetPrivateKey          string          `env:"FAUCET_PK"`
 	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
