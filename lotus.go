@@ -17,6 +17,8 @@ import (
 	"github.com/filecoin-project/lotus/api/client"
 	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/actors"
+	"github.com/filecoin-project/lotus/chain/actors/adt"
+	verifreg1 "github.com/filecoin-project/lotus/chain/actors/builtin/verifreg"
 	"github.com/filecoin-project/lotus/chain/types"
 	cliutil "github.com/filecoin-project/lotus/cli/util"
 	builtin0 "github.com/filecoin-project/specs-actors/actors/builtin"
@@ -210,28 +212,37 @@ func lotusCheckVerifierRemainingBytes(ctx context.Context, targetAddr string) (b
 	}
 	defer closer()
 
-	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, types.EmptyTSK)
+	head, err := api.ChainHead(ctx)
+	if err != nil {
+		return big.Int{}, err
+	}
+
+	act, err := api.StateGetActor(ctx, builtin.VerifiedRegistryActorAddr, head.Key())
+	if err != nil {
+		return big.Int{}, err
+	}
+
+	vid, err := api.StateLookupID(ctx, vaddr, head.Key())
 	if err != nil {
 		return big.Int{}, err
 	}
 
 	apibs := apibstore.NewAPIBlockstore(api)
-	cst := cbor.NewCborStore(apibs)
+	store := adt.WrapStore(ctx, cbor.NewCborStore(apibs))
 
-	var st verifreg.State
-	if err := cst.Get(ctx, act.Head, &st); err != nil {
-		return big.Int{}, err
-	}
-
-	vh, err := hamt.LoadNode(ctx, cst, st.Verifiers, hamt.UseTreeBitWidth(5))
+	st, err := verifreg1.Load(store, act)
 	if err != nil {
 		return big.Int{}, err
 	}
 
-	var dcap verifreg.DataCap
-	if err := vh.Find(ctx, string(vaddr.Bytes()), &dcap); err != nil {
+	found, dcap, err := st.VerifierDataCap(vid)
+	if err != nil {
 		return big.Int{}, err
 	}
+	if !found {
+		return big.Int{}, errors.New("not found")
+	}
+
 	return dcap, nil
 }
 
