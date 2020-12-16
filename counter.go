@@ -1,11 +1,19 @@
 package main
 
-func initCounter() {}
+var count uint
 
-func reachedCounter() bool {
-	return true
+func initCounter() {
+	count = 0
 }
 
-func incrementCounter() {}
+func reachedCounter() bool {
+	return count >= env.MaxTotalAllocations
+}
 
-func resetCounter() {}
+func incrementCounter() {
+	count++
+}
+
+func resetCounter() {
+	count = 0
+}

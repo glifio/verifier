@@ -274,6 +274,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Allocate the bytes
+	incrementCounter()
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -530,4 +531,14 @@ func getUserIDFromJWT(c *gin.Context) (string, error) {
 		return "", err
 	}
 	return userID, nil
+}
+
+func serveResetCounter(c *gin.Context) {
+	password := c.Param("pwd")
+	if password != env.AllocationsCounterResetPword {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not allowed"})
+	}
+	resetCounter()
+	var i interface{}
+	c.JSON(http.StatusAccepted, i)
 }
