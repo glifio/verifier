@@ -221,8 +221,8 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	dataCap, err := lotusCheckVerifierRemainingBytes(c, VerifierAddr.String())
-	tenDataCaps := types.BigMul(env.MaxAllowanceBytes, types.NewInt(0))
-	if dataCap.LessThan(tenDataCaps) {
+	tenDataCaps := types.BigMul(env.MaxAllowanceBytes, types.NewInt(10))
+	if dataCap.LessThanEqual(tenDataCaps) {
 		slackNotification := "LOW DATA CAP: " + dataCap.String()
 		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
 	}
