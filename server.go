@@ -11,6 +11,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -75,6 +76,7 @@ var (
 	ErrFaucetRepeatAttempt  = errors.New("This GitHub account has already used the faucet.")
 	ErrUserLocked           = errors.New("We're still waiting for your previous transaction to finalize.")
 	ErrAddressBlocked       = errors.New("This address or Miner ID has reached its maximum usage of the faucet.")
+	ErrCounterReached       = errors.New("This notary has run out of data cap for today! Come back tomorrow.")
 )
 
 type UserLock string
@@ -210,6 +212,21 @@ func serveVerifyAccount(c *gin.Context) {
 		}
 	}()
 
+	reachedCount := reachedCounter()
+	if reachedCount {
+		slackNotification := "VERIFIER COUNTER REACHED: " + fmt.Sprint(env.MaxTotalAllocations)
+		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
+		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
+		return
+	}
+
+	dataCap, err := lotusCheckVerifierRemainingBytes(c, VerifierAddr.String())
+	tenDataCaps := types.BigMul(env.MaxAllowanceBytes, types.NewInt(0))
+	if dataCap.LessThan(tenDataCaps) {
+		slackNotification := "LOW DATA CAP: " + dataCap.String()
+		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
+	}
+
 	targetAddrStr := c.Param("target_addr")
 
 	// Ensure that the user's account is old enough
@@ -224,11 +241,13 @@ func serveVerifyAccount(c *gin.Context) {
 
 	// Ensure that the user hasn't asked for more allocation too recently
 	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
+		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation age: " + user.MostRecentAllocation.String() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
 		return
 	}
 
-	// Ensure that the user is actually owed bytes
+	// Ensure that the user hasn't used this address before
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -279,14 +298,16 @@ func serveVerifyAccount(c *gin.Context) {
 		// Determine whether the Filecoin message succeeded
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 		defer cancel()
-
+		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
 		ok, err := lotusWaitMessageResult(ctx, cid)
 		if err != nil {
-			// This is already logged in lotusWaitMessageResult
+			slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + " err " + err.Error() + "\n----------"
+			sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
 			return
 		} else if !ok {
-			// Transaction failed
-			log.Println("ERROR: verify transaction failed")
+			slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + "\n----------"
+			sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
 			return
 		}
 
