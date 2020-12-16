@@ -5,8 +5,7 @@ on:
     types: [created]
   push:
     branches: [primary]
-  pull_request:
-    branches: [primary]
+  workflow_dispatch:
 
 jobs:
   build:
