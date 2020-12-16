@@ -299,8 +299,7 @@ func serveVerifyAccount(c *gin.Context) {
 		// Determine whether the Filecoin message succeeded
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 		defer cancel()
-		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
+
 		ok, err := lotusWaitMessageResult(ctx, cid)
 		if err != nil {
 			slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + " err " + err.Error() + "\n----------"
