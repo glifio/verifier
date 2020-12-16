@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     name: Cloud Run Deployment
+    env:
+      MY_VAR: I am not a secret
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -43,5 +45,5 @@ jobs:
           --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/verifier \
           --platform managed \
           --allow-unauthenticated \
-          --set-env-vars=GITHUB_CLIENT_ID=${{ secrets.GITHUB_CLIENT_ID }},GITHUB_CLIENT_SECRET=${{ secrets.GITHUB_CLIENT_SECRET }},AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }},AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }},VERIFIER_MIN_ACCOUNT_AGE_DAYS=${{ secrets.VERIFIER_MIN_ACCOUNT_AGE_DAYS }},VERIFIER_RATE_LIMIT=${{ secrets.VERIFIER_RATE_LIMIT }},MAX_ALLOWANCE_BYTES=${{ secrets.MAX_ALLOWANCE_BYTES }},LOTUS_API_DIAL_ADDR=${{ secrets.LOTUS_API_DIAL_ADDR }},LOTUS_API_TOKEN=${{ secrets.LOTUS_API_TOKEN }},JWT_SECRET=${{ secrets.JWT_SECRET }},DYNAMODB_TABLE_NAME=${{ secrets.DYNAMODB_TABLE_NAME }},MAX_FEE=${{ secrets.MAX_FEE }},VERIFIER_PK=${{ secrets.VERIFIER_PK }},MODE=${{ secrets.MODE }} \
+          --set-env-vars=GITHUB_CLIENT_ID=${{ secrets.NERPA_GITHUB_CLIENT_ID }},GITHUB_CLIENT_SECRET=${{ secrets.NERPA_GITHUB_CLIENT_SECRET }},AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }},AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }},VERIFIER_MIN_ACCOUNT_AGE_DAYS=${{ secrets.VERIFIER_MIN_ACCOUNT_AGE_DAYS }},VERIFIER_RATE_LIMIT=${{ secrets.VERIFIER_RATE_LIMIT }},MAX_ALLOWANCE_BYTES=${{ secrets.MAX_ALLOWANCE_BYTES }},LOTUS_API_DIAL_ADDR=${{ secrets.LOTUS_API_DIAL_ADDR }},LOTUS_API_TOKEN=${{ secrets.LOTUS_API_TOKEN }},JWT_SECRET=${{ secrets.JWT_SECRET }},DYNAMODB_TABLE_NAME=${{ secrets.DYNAMODB_TABLE_NAME }},MAX_FEE=${{ secrets.MAX_FEE }},VERIFIER_PK=${{ secrets.VERIFIER_PK }},MODE=${{ secrets.MODE }},MAX_TOTAL_ALLOCATIONS=${{ secrets.MAX_TOTAL_ALLOCATIONS }},ALLOCATIONS_COUNTER_PWD=${{secrets.ALLOCATIONS_COUNTER_PWD}} \
           --project ${{ secrets.GCP_PROJECT_ID }}
