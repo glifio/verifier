@@ -28,13 +28,8 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-func lotusVerifyAccount(ctx context.Context, targetAddr string, allowanceStr string) (cid.Cid, error) {
+func lotusVerifyAccount(ctx context.Context, targetAddr string, allowance types.BigInt) (cid.Cid, error) {
 	target, err := address.NewFromString(targetAddr)
-	if err != nil {
-		return cid.Cid{}, err
-	}
-
-	allowance, err := types.BigFromString(allowanceStr)
 	if err != nil {
 		return cid.Cid{}, err
 	}

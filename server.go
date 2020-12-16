@@ -69,8 +69,8 @@ func main() {
 var (
 	ErrUnsupportedProvider  = errors.New("unsupported oauth provider")
 	ErrUserTooNew           = errors.New("User account is too new.")
-	ErrSufficientAllowance  = errors.New("allowance is already sufficient")
-	ErrAllocatedTooRecently = errors.New("you must wait 30 days in between reallocations")
+	ErrVerifiedClientExists = errors.New("This Filecoin address is already a verified client. Please try again with a new Filecoin address.")
+	ErrAllocatedTooRecently = errors.New("You must wait 30 days in between reallocations")
 	ErrStaleJWT             = errors.New("The network has reset since your last visit. Please click the retry button above.")
 	ErrFaucetRepeatAttempt  = errors.New("This GitHub account has already used the faucet.")
 	ErrUserLocked           = errors.New("We're still waiting for your previous transaction to finalize.")
@@ -238,9 +238,8 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	owed := big.Sub(env.MaxAllowanceBytes, remaining)
-	if big.Cmp(owed, big.NewInt(0)) <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "you have verified data already, Greedy McRichbags"})
+	if remaining.GreaterThan(big.NewInt(0)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": ErrVerifiedClientExists.Error()})
 		return
 	}
 
@@ -259,7 +258,7 @@ func serveVerifyAccount(c *gin.Context) {
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	cid, err := lotusVerifyAccount(ctx, targetAddrStr, owed.String())
+	cid, err := lotusVerifyAccount(ctx, targetAddrStr, env.MaxAllowanceBytes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -338,16 +337,10 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 		return
 	}
 
-	user, err := getUserByVerifiedFilecoinAddress(targetAddr)
-	if err != nil {
-		// no-op
-	}
-
 	type Response struct {
 		RemainingBytes       string    `json:"remainingBytes"`
-		MostRecentAllocation time.Time `json:"mostRecentAllocation"`
 	}
-	c.JSON(http.StatusOK, Response{dcap.String(), user.MostRecentAllocation})
+	c.JSON(http.StatusOK, Response{dcap.String()})
 }
 
 func serveCheckVerifierRemainingBytes(c *gin.Context) {
