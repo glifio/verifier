@@ -41,6 +41,8 @@ type Env struct {
 	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
 	MaxTotalAllocations       uint            `env:"MAX_TOTAL_ALLOCATIONS" envDefault:"0"`
 	AllocationsCounterResetPword string       `env:"ALLOCATIONS_COUNTER_PWD"`
+	RedisEndpoint             string          `env:"REDIS_ENDPOINT"`
+	RedisPwd                  string          `env:"REDIS_PASSWORD"`
 	// faucet specific env vars
 	FaucetPrivateKey          string          `env:"FAUCET_PK"`
 	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`

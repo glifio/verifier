@@ -21,6 +21,7 @@ require (
 	github.com/filecoin-project/specs-actors/v2 v2.1.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
+	github.com/go-redis/redis/v8 v8.4.4 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/guregu/dynamo v1.8.0
 	github.com/ipfs/go-cid v0.0.7

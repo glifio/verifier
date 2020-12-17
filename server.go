@@ -21,7 +21,7 @@ import (
 )
 
 func registerVerifierHandlers(router *gin.Engine) {
-	initCounter()
+	initCounter(&gin.Context{})
 	router.POST("/verify/:target_addr", serveVerifyAccount)
 	router.PUT("/verify/counter/:pwd", serveResetCounter)
 	router.GET("/verifiers", serveListVerifiers)
@@ -228,7 +228,7 @@ func serveVerifyAccount(c *gin.Context) {
 		}
 	}()
 
-	reachedCount := reachedCounter()
+	reachedCount := reachedCounter(c)
 	if reachedCount {
 		slackNotification := "VERIFIER COUNTER REACHED: " + fmt.Sprint(env.MaxTotalAllocations)
 		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
@@ -289,7 +289,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Allocate the bytes
-	incrementCounter()
+	incrementCounter(c)
 	ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
@@ -553,7 +553,6 @@ func serveResetCounter(c *gin.Context) {
 	if password != env.AllocationsCounterResetPword {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Not allowed"})
 	}
-	resetCounter()
-	var i interface{}
-	c.JSON(http.StatusAccepted, i)
+	resetCounter(c)
+	c.JSON(http.StatusAccepted, "")
 }
