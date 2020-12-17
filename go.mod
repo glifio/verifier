@@ -23,6 +23,7 @@ require (
 	github.com/filecoin-project/test-vectors v0.0.0-20201008144318-a8f968adeba1 // indirect
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
+	github.com/go-redis/redis/v8 v8.4.4 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/guregu/dynamo v1.8.0
 	github.com/ipfs/go-cid v0.0.7
