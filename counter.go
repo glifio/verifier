@@ -16,6 +16,9 @@ func initRedis() *redis.Client {
 }
 
 func initCounter(ctx context.Context) error {
+	if env.MaxTotalAllocations == 0 {
+		return nil
+	}
 	partitionKey = env.DynamodbTableName + ":COUNT"
 	rdb := initRedis()
 
@@ -31,6 +34,9 @@ func initCounter(ctx context.Context) error {
 }
 
 func getCount(ctx context.Context) (uint, error) {
+	if env.MaxTotalAllocations == 0 {
+		return 0, nil
+	}
 	rdb := initRedis()
 	val, err := rdb.Get(ctx, partitionKey).Uint64()
 	if err != nil {
@@ -54,21 +60,21 @@ func reachedCounter(ctx context.Context) bool {
 	return val >= env.MaxTotalAllocations
 }
 
-func incrementCounter(ctx context.Context) {
+func incrementCounter(ctx context.Context) error {
+	if env.MaxTotalAllocations == 0 {
+		return nil
+	}
 	rdb := initRedis()
 
 	val, err := getCount(ctx)
 	if err != nil {
-		slackNotification := "REDIS GET COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
-		return
+		return err
 	}
 	err = rdb.Set(ctx, partitionKey, val + 1, 0).Err()
 	if err != nil {
-		slackNotification := "REDIS INCREMENT COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		return err
 	}
-	return
+	return nil
 }
 
 func resetCounter(ctx context.Context) {
