@@ -12,16 +12,19 @@ func reconcileVerifierMessages() {
 	users, err := getLockedUsers(UserLock_Verifier)
 	if err != nil {
 		fmt.Println("ERROR FOR NR", err.Error())
+		return
 	}
 
 	for _, user := range users {
 		cid, err := cid.Decode(user.MostRecentDataCapCid)
 		if err != nil {
 			fmt.Println("ERROR FOR NR", err.Error())
+			return
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
 			fmt.Println("ERROR FOR NR", err.Error())
+			return
 		}
 
 		finished := mLookup != nil
@@ -32,9 +35,11 @@ func reconcileVerifierMessages() {
 			err = saveUser(user)
 			if err != nil {
 				fmt.Println("ERR FOR NR", err)
+				return
 			}
 		} else if finished {
 			fmt.Println("TRANSACTION FAILED ERR FOR NR", mLookup.Receipt.ExitCode.Error(), mLookup.Receipt.ExitCode.Error())
+			return
 		}
 	}
 }
@@ -43,16 +48,19 @@ func reconcileFaucetMessages() {
 	users, err := getLockedUsers(UserLock_Faucet)
 	if err != nil {
 		fmt.Println("ERROR FOR NR", err.Error())
+		return
 	}
 
 	for _, user := range users {
 		cid, err := cid.Decode(user.MostRecentFaucetGrantCid)
 		if err != nil {
 			fmt.Println("ERROR FOR NR", err.Error())
+			return
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
 			fmt.Println("ERROR FOR NR", err.Error())
+			return
 		}
 
 		finished := mLookup != nil
@@ -63,9 +71,11 @@ func reconcileFaucetMessages() {
 			err = saveUser(user)
 			if err != nil {
 				fmt.Println("ERR FOR NR", err)
+				return
 			}
 		} else if finished {
 			fmt.Println("TRANSACTION FAILED ERR FOR NR", mLookup.Receipt.ExitCode.Error(), mLookup.Receipt.ExitCode.Error())
+			return
 		}
 	}
 }
