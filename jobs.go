@@ -36,6 +36,36 @@ func reconcileVerifierMessages() {
 		} else if finished {
 			fmt.Println("TRANSACTION FAILED ERR FOR NR", mLookup.Receipt.ExitCode.Error(), mLookup.Receipt.ExitCode.Error())
 		}
-		fmt.Println(confirmed)
+	}
+}
+
+func reconcileFaucetMessages() {
+	users, err := getLockedUsers(UserLock_Faucet)
+	if err != nil {
+		fmt.Println("ERROR FOR NR")
+	}
+
+	for _, user := range users {
+		cid, err := cid.Decode(user.MostRecentFaucetGrantCid)
+		if err != nil {
+			fmt.Println("ERROR FOR NR")
+		}
+		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
+		if err != nil {
+			fmt.Println("ERROR FOR NR")
+		}
+
+		finished := mLookup != nil
+		confirmed := mLookup.Receipt.ExitCode.IsSuccess()
+		if finished && confirmed {
+			user.ReceivedFaucetGrant = true
+			user.Locked_Faucet = false
+			err = saveUser(user)
+			if err != nil {
+				fmt.Println("ERR FOR NR", err)
+			}
+		} else if finished {
+			fmt.Println("TRANSACTION FAILED ERR FOR NR", mLookup.Receipt.ExitCode.Error(), mLookup.Receipt.ExitCode.Error())
+		}
 	}
 }
