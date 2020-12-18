@@ -301,6 +301,23 @@ func lotusTranslateError(err *error) {
 	}
 }
 
+func lotusSearchMessageResult(ctx context.Context, cid cid.Cid) (*api.MsgLookup, error) {
+	client, closer, err := lotusGetFullNodeAPI(ctx)
+	if err != nil {
+		log.Println("error getting FullNodeAPI:", err)
+		return &api.MsgLookup{}, err
+	}
+	defer closer()
+
+	var mLookup *api.MsgLookup
+	mLookup, err = client.StateWaitMsg(ctx, cid, build.MessageConfidence)
+	if err != nil {
+		return &api.MsgLookup{}, err
+	}
+
+	return mLookup, nil
+}
+
 func lotusWaitMessageResult(ctx context.Context, cid cid.Cid) (bool, error) {
 	client, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {

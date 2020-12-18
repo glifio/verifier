@@ -1,0 +1,41 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/ipfs/go-cid"
+)
+
+func reconcileVerifierMessages() {
+	users, err := getLockedUsers(UserLock_Verifier)
+	if err != nil {
+		fmt.Println("ERROR FOR NR")
+	}
+
+	for _, user := range users {
+		cid, err := cid.Decode(user.MostRecentDataCapCid)
+		if err != nil {
+			fmt.Println("ERROR FOR NR")
+		}
+		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
+		if err != nil {
+			fmt.Println("ERROR FOR NR")
+		}
+
+		finished := mLookup != nil
+		confirmed := mLookup.Receipt.ExitCode.IsSuccess()
+		if finished && confirmed {
+			user.MostRecentAllocation = time.Now()
+			user.Locked_Verifier = false
+			err = saveUser(user)
+			if err != nil {
+				fmt.Println("ERR FOR NR", err)
+			}
+		} else if finished {
+			fmt.Println("TRANSACTION FAILED ERR FOR NR", mLookup.Receipt.ExitCode.Error(), mLookup.Receipt.ExitCode.Error())
+		}
+		fmt.Println(confirmed)
+	}
+}

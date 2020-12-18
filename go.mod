@@ -33,5 +33,6 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200826160007-0b9f6c5fb163
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
+	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
 )
