@@ -16,6 +16,9 @@ func initRedis() *redis.Client {
 }
 
 func initCounter(ctx context.Context) error {
+	if env.MaxTotalAllocations == 0 {
+		return nil
+	}
 	partitionKey = env.DynamodbTableName + ":COUNT"
 	rdb := initRedis()
 
@@ -31,6 +34,9 @@ func initCounter(ctx context.Context) error {
 }
 
 func getCount(ctx context.Context) (uint, error) {
+	if env.MaxTotalAllocations == 0 {
+		return 0, nil
+	}
 	rdb := initRedis()
 	val, err := rdb.Get(ctx, partitionKey).Uint64()
 	if err != nil {
@@ -39,45 +45,42 @@ func getCount(ctx context.Context) (uint, error) {
 	return uint(val), nil
 }
 
-func reachedCounter(ctx context.Context) bool {
+func reachedCounter(ctx context.Context) (bool, error) {
 	if env.MaxTotalAllocations == 0 {
-		return false
+		return false, nil
 	}
 
 	val, err := getCount(ctx)
 	if err != nil {
-		slackNotification := "REDIS GET COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
-		return true
+		return true, err
 	}
 
-	return val >= env.MaxTotalAllocations
+	return val >= env.MaxTotalAllocations, nil
 }
 
-func incrementCounter(ctx context.Context) {
+func incrementCounter(ctx context.Context) error {
+	if env.MaxTotalAllocations == 0 {
+		return nil
+	}
 	rdb := initRedis()
 
 	val, err := getCount(ctx)
 	if err != nil {
-		slackNotification := "REDIS GET COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
-		return
+		return err
 	}
 	err = rdb.Set(ctx, partitionKey, val + 1, 0).Err()
 	if err != nil {
-		slackNotification := "REDIS INCREMENT COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		return err
 	}
-	return
+	return nil
 }
 
-func resetCounter(ctx context.Context) {
+func resetCounter(ctx context.Context) (bool, error) {
 	rdb := initRedis()
 
 	err := rdb.Set(ctx, partitionKey, 0, 0).Err()
 	if err != nil {
-		slackNotification := "REDIS INCREMENT COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		return false, nil
 	}
-	return
+	return true, nil
 }

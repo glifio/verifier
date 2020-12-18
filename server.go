@@ -14,14 +14,17 @@ import (
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"github.com/newrelic/go-agent/v3/newrelic"
 	nrgin "github.com/newrelic/go-agent/v3/integrations/nrgin"
-
+	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/pkg/errors"
 )
 
 func registerVerifierHandlers(router *gin.Engine) {
-	initCounter(&gin.Context{})
+	err := initCounter(&gin.Context{})
+	if err != nil {
+		slackNotification := "REDIS INIT COUNT FAILED: " + err.Error()
+		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+	}
 	router.POST("/verify/:target_addr", serveVerifyAccount)
 	router.PUT("/verify/counter/:pwd", serveResetCounter)
 	router.GET("/verifiers", serveListVerifiers)
@@ -44,8 +47,8 @@ func main() {
 		newrelic.ConfigDistributedTracerEnabled(true),
 	)
 	if nil != err {
-        fmt.Println(err)
-    }
+		fmt.Println(err)
+	}
 	
 	router := gin.Default()
 	router.Use(nrgin.Middleware(app))
@@ -211,7 +214,6 @@ func serveVerifyAccount(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
 	}
-	
 	// This helps us keep the user locked while we wait to see if the message was successful.  If
 	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
 	var successfullySubmittedMessage bool
@@ -228,7 +230,7 @@ func serveVerifyAccount(c *gin.Context) {
 		}
 	}()
 
-	reachedCount := reachedCounter(c)
+	reachedCount, err := reachedCounter(c)
 	if reachedCount {
 		slackNotification := "VERIFIER COUNTER REACHED: " + fmt.Sprint(env.MaxTotalAllocations)
 		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
@@ -236,8 +238,22 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
+	if err != nil {
+		slackNotification := "VERIFIER COUNTER CALCULATION FAILED: " + fmt.Sprint(env.MaxTotalAllocations) + err.Error()
+		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrCounterReached.Error()})
+		return
+	}
+
 	dataCap, err := lotusCheckVerifierRemainingBytes(c, VerifierAddr.String())
+	if err != nil {
+		slackNotification := "LOTUS CHECK VERIFIER BYTES FAILED" + err.Error() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
+		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
+		return
+	}
 	fiftyDataCaps := types.BigMul(env.MaxAllowanceBytes, types.NewInt(50))
+
 	if dataCap.LessThanEqual(fiftyDataCaps) {
 		slackNotification := "LOW DATA CAP: " + dataCap.String()
 		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
@@ -269,6 +285,8 @@ func serveVerifyAccount(c *gin.Context) {
 
 	remaining, err := lotusCheckAccountRemainingBytes(ctx, targetAddrStr)
 	if err != nil {
+		slackNotification := "LOTUS CHECK ACCOUNT REMAINING BYTES FAILED" + err.Error() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -289,7 +307,14 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Allocate the bytes
-	incrementCounter(c)
+	err = incrementCounter(c)
+	if err != nil {
+		slackNotification := "REDIS INCREMENT COUNT FAILED: " + err.Error()
+		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
@@ -552,7 +577,13 @@ func serveResetCounter(c *gin.Context) {
 	password := c.Param("pwd")
 	if password != env.AllocationsCounterResetPword {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Not allowed"})
+		return
 	}
-	resetCounter(c)
+	if _, err := resetCounter(c); err != nil {
+		slackNotification := "REDIS RESET COUNT FAILED: " + err.Error()
+		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return 
+	}
 	c.JSON(http.StatusAccepted, "")
 }
