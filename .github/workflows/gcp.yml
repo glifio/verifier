@@ -1,10 +1,10 @@
 name: publish
 
 on:
-  release:
-    types: [created]
-  push:
-    branches: [primary]
+  #  release:
+  #    types: [created]
+  #  push:
+  #    branches: [primary]
   workflow_dispatch:
 
 jobs:

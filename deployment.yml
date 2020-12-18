@@ -1,0 +1,139 @@
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verifier-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verifier
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app: verifier
+    spec:
+      containers:
+        - name: verifier
+          image: gcr.io/PROJECT_ID/IMAGE:TAG
+          env:
+            - name: AWS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: AWS_SECRET_KEY
+            - name: LOTUS_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: LOTUS_API_TOKEN
+            - name: MAX_ALLOWANCE_BYTES
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: MAX_ALLOWANCE_BYTES
+            - name: VERIFIER_PK
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: VERIFIER_PK
+            - name: MODE
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: MODE
+            - name: DYNAMODB_TABLE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: DYNAMODB_TABLE_NAME
+            - name: GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: GITHUB_CLIENT_SECRET
+            - name: LOTUS_API_DIAL_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: LOTUS_API_DIAL_ADDR
+            - name: MAX_FEE
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: MAX_FEE
+            - name: REDIS_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: REDIS_ENDPOINT
+            - name: ALLOCATIONS_COUNTER_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: ALLOCATIONS_COUNTER_PWD
+            - name: AWS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: AWS_ACCESS_KEY
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: AWS_REGION
+            - name: GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: GITHUB_CLIENT_ID
+            - name: MIN_ACCOUNT_AGE_DAYS
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: MIN_ACCOUNT_AGE_DAYS
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: JWT_SECRET
+            - name: MAX_TOTAL_ALLOCATIONS
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: MAX_TOTAL_ALLOCATIONS
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: REDIS_PASSWORD
+            - name: NEW_RELIC_LICENSE
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: NEW_RELIC_LICENSE
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 200m
+            limits:
+              cpu: 200m
