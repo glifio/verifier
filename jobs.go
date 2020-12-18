@@ -11,17 +11,17 @@ import (
 func reconcileVerifierMessages() {
 	users, err := getLockedUsers(UserLock_Verifier)
 	if err != nil {
-		fmt.Println("ERROR FOR NR")
+		fmt.Println("ERROR FOR NR", err.Error())
 	}
 
 	for _, user := range users {
 		cid, err := cid.Decode(user.MostRecentDataCapCid)
 		if err != nil {
-			fmt.Println("ERROR FOR NR")
+			fmt.Println("ERROR FOR NR", err.Error())
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
-			fmt.Println("ERROR FOR NR")
+			fmt.Println("ERROR FOR NR", err.Error())
 		}
 
 		finished := mLookup != nil
@@ -42,17 +42,17 @@ func reconcileVerifierMessages() {
 func reconcileFaucetMessages() {
 	users, err := getLockedUsers(UserLock_Faucet)
 	if err != nil {
-		fmt.Println("ERROR FOR NR")
+		fmt.Println("ERROR FOR NR", err.Error())
 	}
 
 	for _, user := range users {
 		cid, err := cid.Decode(user.MostRecentFaucetGrantCid)
 		if err != nil {
-			fmt.Println("ERROR FOR NR")
+			fmt.Println("ERROR FOR NR", err.Error())
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
-			fmt.Println("ERROR FOR NR")
+			fmt.Println("ERROR FOR NR", err.Error())
 		}
 
 		finished := mLookup != nil
