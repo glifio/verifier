@@ -37,6 +37,8 @@ func main() {
 	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
 	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
 	fmt.Println("Max transaction fee: ", env.MaxFee)
+	fmt.Println("mode: ", env.Mode)
+	fmt.Println("VerifierPrivateKey: ", env.VerifierPrivateKey)
 
 	if err := initBlockListCache(); err != nil { log.Panic(err) }
 	if _, err := instantiateWallet(&gin.Context{}); err != nil { log.Panic(err) }
