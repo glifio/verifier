@@ -24,7 +24,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: glif-cluster
   GKE_ZONE: us-central1-a
-  DEPLOYMENT_NAME: verifier
+  DEPLOYMENT_NAME: verifier-backend
   IMAGE: verifier
 
 jobs:
