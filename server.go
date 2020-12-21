@@ -63,7 +63,9 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-	router.GET("/", serveRoot)
+	router.GET("/", servePong)
+	router.GET("/healthz", servePong)
+	router.GET("/ping", servePong)
 	router.POST("/oauth/:provider", serveOauth, handleError("/oauth"))
 	c := cron.New()
 	if env.Mode == FaucetMode {
@@ -135,8 +137,8 @@ func handleError(route string) gin.HandlerFunc {
 	}
 }
 
-func serveRoot(c *gin.Context) {
-		c.JSON(http.StatusOK, "verifier")
+func servePong(c *gin.Context) {
+		c.JSON(http.StatusOK, "pong")
 }
 
 func serveOauth(c *gin.Context) {
