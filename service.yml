@@ -15,11 +15,23 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: verifier-service
+  name: verifier-backend-nodeport-service
 spec:
-  type: LoadBalancer
-  ports:
-    - port: 80
-      targetPort: 8080
   selector:
-    app: verifier-backend
+    key: value
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: verifier-service
+# spec:
+#   type: LoadBalancer
+#   ports:
+#     - port: 80
+#       targetPort: 8080
+#   selector:
+#     app: verifier-backend
