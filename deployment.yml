@@ -20,7 +20,7 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: verifier
+      app: verifier-backend
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -29,10 +29,10 @@ spec:
   template:
     metadata:
       labels:
-        app: verifier
+        app: verifier-backend
     spec:
       containers:
-        - name: verifier
+        - name: verifier-backend
           image: gcr.io/PROJECT_ID/IMAGE:TAG
           env:
             - name: AWS_SECRET_KEY
@@ -132,8 +132,8 @@ spec:
                   key: NEW_RELIC_LICENSE
           ports:
             - containerPort: 8080
-          resources:
-            requests:
-              cpu: 200m
-            limits:
-              cpu: 200m
+#          resources:
+#            requests:
+#              cpu: 200m
+#            limits:
+#              cpu: 200m
