@@ -39,12 +39,10 @@ func main() {
 	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
 	fmt.Println("Max transaction fee: ", env.MaxFee)
 	fmt.Println("mode: ", env.Mode)
-	fmt.Println("VerifierPrivateKey: ", env.VerifierPrivateKey)
 
 	if err := initBlockListCache(); err != nil { log.Panic(err) }
-	fmt.Println("ABOUT TO instantiate wallet")
-	if _, err := instantiateWallet(&gin.Context{}); err != nil { fmt.Println("ERR", err) }
-	fmt.Println("instantiated success")
+	if _, err := instantiateWallet(&gin.Context{}); err != nil { log.Panic(err) }
+
 	app, err := newrelic.NewApplication(
 		newrelic.ConfigAppName("verifier-backend"),
 		newrelic.ConfigLicense(env.NewRelicLicence),
@@ -73,12 +71,12 @@ func main() {
 		fmt.Println("Faucet min GH account age days: ", env.FaucetMinAccountAgeDays)
 		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
 		c.AddFunc("@hourly", reconcileFaucetMessages)
-		} else if env.Mode == VerifierMode {
-			fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
-			fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
-			fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
-			registerVerifierHandlers(router)
-			c.AddFunc("@hourly", reconcileVerifierMessages)
+	} else if env.Mode == VerifierMode {
+		fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
+		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
+		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
+		registerVerifierHandlers(router)
+		c.AddFunc("@hourly", reconcileVerifierMessages)
 	} else {
 		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
 		fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAgeDays)
