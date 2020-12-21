@@ -117,3 +117,17 @@ func getUserByVerifiedFilecoinAddress(filecoinAddr string) (User, error) {
 	}
 	return users[0], nil
 }
+
+func getLockedUsers(lock UserLock) ([]User, error) {
+	table := dynamoTable(env.DynamodbTableName)
+	var users []User
+	err := table.Scan().
+		Filter("Locked_"+string(lock)+" = ?", true).
+		All(&users)
+	if err != nil {
+		var empty []User
+		return empty, err
+	}
+
+	return users, nil
+}

@@ -17,6 +17,7 @@ import (
 	nrgin "github.com/newrelic/go-agent/v3/integrations/nrgin"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/pkg/errors"
+	"gopkg.in/robfig/cron.v2"
 )
 
 func registerVerifierHandlers(router *gin.Engine) {
@@ -65,16 +66,18 @@ func main() {
 	}))
 
 	router.POST("/oauth/:provider", serveOauth, handleError("/oauth"))
-
+	c := cron.New()
 	if env.Mode == FaucetMode {
 		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
 		fmt.Println("Faucet min GH account age days: ", env.FaucetMinAccountAgeDays)
 		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
-	} else if env.Mode == VerifierMode {
-		fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
-		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
-		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
-		registerVerifierHandlers(router)
+		c.AddFunc("@hourly", reconcileFaucetMessages)
+		} else if env.Mode == VerifierMode {
+			fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
+			fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
+			fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
+			registerVerifierHandlers(router)
+			c.AddFunc("@hourly", reconcileVerifierMessages)
 	} else {
 		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
 		fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAgeDays)
@@ -83,8 +86,14 @@ func main() {
 		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
 		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
 		registerVerifierHandlers(router)
+		c.AddFunc("@hourly", reconcileFaucetMessages)
+		c.AddFunc("@hourly", reconcileVerifierMessages)
 	}
 
+	c.Start()
+	defer func() {
+		c.Stop()
+	}()
 	router.Run(":" + env.Port)
 }
 
@@ -216,21 +225,13 @@ func serveVerifyAccount(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
 	}
-	// This helps us keep the user locked while we wait to see if the message was successful.  If
-	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
-	var successfullySubmittedMessage bool
 
-	// Lock the user for the duration of this operation
+	// Lock the user for the duration of this operation until cron job cleans it up
 	err = lockUser(userID, UserLock_Verifier)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
 	}
-	defer func() {
-		if !successfullySubmittedMessage {
-			unlockUser(userID, UserLock_Verifier)
-		}
-	}()
 
 	reachedCount, err := reachedCounter(c)
 	if reachedCount {
@@ -326,42 +327,20 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	successfullySubmittedMessage = true
+	user.MostRecentDataCapCid = cid.String()
+	user.MostRecentVerifiedAddress = targetAddrStr
+
+	err = saveUser(user)
+	if err != nil {
+		// TODO what to do here?
+		log.Println("error saving user:", err)
+	}
 
 	// Respond to the HTTP request
 	type Response struct {
 		Cid string `json:"cid"`
 	}
 	c.JSON(http.StatusOK, Response{Cid: cid.String()})
-
-
-	go func() {
-		defer unlockUser(userID, UserLock_Verifier)
-
-		// Determine whether the Filecoin message succeeded
-		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
-		defer cancel()
-
-		ok, err := lotusWaitMessageResult(ctx, cid)
-		if err != nil {
-			slackNotification := "Requester's ID: " + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + " err " + err.Error() + "\n----------"
-			sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
-			return
-		} else if !ok {
-			slackNotification := "Requester's ID: " + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation CID: " + cid.String() + "\n----------"
-			sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
-			return
-		}
-
-		user.MostRecentDataCapCid = cid.String()
-		user.MostRecentVerifiedAddress = targetAddrStr
-		user.MostRecentAllocation = time.Now()
-
-		err = saveUser(user)
-		if err != nil {
-			log.Println("error saving user:", err)
-		}
-	}()
 }
 
 func serveListVerifiers(c *gin.Context) {
@@ -449,21 +428,12 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	// This helps us keep the user locked while we wait to see if the message was successful.  If
-	// we don't reach the point where we've submitted it, we go ahead and unlock the user right away.
-	var successfullySubmittedMessage bool
-
 	// Lock the user for the duration of this operation
 	err = lockUser(userID, UserLock_Faucet)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
 		return
 	}
-	defer func() {
-		if !successfullySubmittedMessage {
-			unlockUser(userID, UserLock_Faucet)
-		}
-	}()
 
 	targetAddrStr := c.Param("target_addr")
 
@@ -503,7 +473,13 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	successfullySubmittedMessage = true
+	user.MostRecentFaucetGrantCid = cid.String()
+	user.MostRecentFaucetAddress = targetAddrStr
+
+	err = saveUser(user)
+	if err != nil {
+		fmt.Println("ERR FOR NEW RELIC")
+	}
 
 	// Respond to the HTTP request
 	type Response struct {
@@ -516,33 +492,6 @@ func serveFaucet(c *gin.Context) {
 		Sent:    env.FaucetGrantSize.String(),
 		Address: targetAddr.String(),
 	})
-
-	go func() {
-		defer unlockUser(userID, UserLock_Faucet)
-
-		// Determine whether the Filecoin message succeeded
-		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
-		defer cancel()
-
-		ok, err := lotusWaitMessageResult(ctx, cid)
-		if err != nil {
-			// This is already logged in lotusWaitMessageResult
-			return
-		} else if !ok {
-			// Transaction failed
-			log.Println("ERROR: faucet transaction failed")
-			return
-		}
-
-		user.MostRecentFaucetGrantCid = cid.String()
-		user.MostRecentFaucetAddress = targetAddrStr
-		user.ReceivedFaucetGrant = true
-
-		err = saveUser(user)
-		if err != nil {
-			log.Println("error saving user:", err)
-		}
-	}()
 }
 
 func getUserIDFromJWT(c *gin.Context) (string, error) {
