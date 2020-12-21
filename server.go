@@ -43,7 +43,7 @@ func main() {
 
 	if err := initBlockListCache(); err != nil { log.Panic(err) }
 	fmt.Println("ABOUT TO instantiate wallet")
-	if _, err := instantiateWallet(&gin.Context{}); err != nil { log.Panic(err) }
+	if _, err := instantiateWallet(&gin.Context{}); err != nil { fmt.Println("ERR", err) }
 	fmt.Println("instantiated success")
 	app, err := newrelic.NewApplication(
 		newrelic.ConfigAppName("verifier-backend"),
