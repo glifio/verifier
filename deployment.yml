@@ -130,8 +130,25 @@ spec:
                 secretKeyRef:
                   name: credentials
                   key: NEW_RELIC_LICENSE
+            - name: GIN_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: credentials
+                  key: GIN_MODE
           ports:
             - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
 #          resources:
 #            requests:
 #              cpu: 200m
