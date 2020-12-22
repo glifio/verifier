@@ -105,7 +105,7 @@ var (
 	ErrAllocatedTooRecently = errors.New("You must wait 30 days in between reallocations")
 	ErrStaleJWT             = errors.New("The network has reset since your last visit. Please click the retry button above.")
 	ErrFaucetRepeatAttempt  = errors.New("This GitHub account has already used the faucet.")
-	ErrUserLocked           = errors.New("We're still waiting for your previous transaction to finalize.")
+	ErrUserLocked           = errors.New("Our servers are processing your last transaction. Come back tomorrow.")
 	ErrAddressBlocked       = errors.New("This address or Miner ID has reached its maximum usage of the faucet.")
 	ErrCounterReached       = errors.New("This notary has run out of data cap for today! Come back tomorrow.")
 )
@@ -231,6 +231,24 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
+	targetAddrStr := c.Param("target_addr")
+
+	// Ensure that the user hasn't used this address before
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	remaining, err := lotusCheckAccountRemainingBytes(ctx, targetAddrStr)
+	if err != nil {
+		slackNotification := "LOTUS CHECK ACCOUNT REMAINING BYTES FAILED" + err.Error() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if remaining.GreaterThan(big.NewInt(0)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": ErrVerifiedClientExists.Error()})
+		return
+	}
+
 	// Lock the user for the duration of this operation until cron job cleans it up
 	err = lockUser(userID, UserLock_Verifier)
 	if err != nil {
@@ -267,8 +285,6 @@ func serveVerifyAccount(c *gin.Context) {
 		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
 	}
 
-	targetAddrStr := c.Param("target_addr")
-
 	// Ensure that the user's account is old enough
 	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
 	// No account less than MinAccountAge is allowed any FIL
@@ -284,22 +300,6 @@ func serveVerifyAccount(c *gin.Context) {
 		slackNotification := "Requester's ID:" + user.ID + "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation: " + user.MostRecentAllocation.String() + "\n----------"
 		sendSlackNotification("https://errors.glif.io/verifier-reallocation-too-soon", slackNotification)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
-		return
-	}
-
-	// Ensure that the user hasn't used this address before
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	remaining, err := lotusCheckAccountRemainingBytes(ctx, targetAddrStr)
-	if err != nil {
-		slackNotification := "LOTUS CHECK ACCOUNT REMAINING BYTES FAILED" + err.Error() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if remaining.GreaterThan(big.NewInt(0)) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": ErrVerifiedClientExists.Error()})
 		return
 	}
 
