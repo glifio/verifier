@@ -256,6 +256,12 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
+	user, err = getUserByID(userID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
+		return
+	}
+
 	reachedCount, err := reachedCounter(c)
 	if reachedCount {
 		slackNotification := "VERIFIER COUNTER REACHED: " + fmt.Sprint(env.MaxTotalAllocations)
@@ -437,6 +443,12 @@ func serveFaucet(c *gin.Context) {
 	err = lockUser(userID, UserLock_Faucet)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
+		return
+	}
+
+	user, err = getUserByID(userID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
 		return
 	}
 
