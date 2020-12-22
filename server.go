@@ -14,8 +14,6 @@ import (
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	nrgin "github.com/newrelic/go-agent/v3/integrations/nrgin"
-	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/pkg/errors"
 	"gopkg.in/robfig/cron.v2"
 )
@@ -42,19 +40,8 @@ func main() {
 
 	if err := initBlockListCache(); err != nil { log.Panic(err) }
 	if _, err := instantiateWallet(&gin.Context{}); err != nil { log.Panic(err) }
-
-	app, err := newrelic.NewApplication(
-		newrelic.ConfigAppName("verifier-backend"),
-		newrelic.ConfigLicense(env.NewRelicLicence),
-		newrelic.ConfigDistributedTracerEnabled(true),
-	)
-	if nil != err {
-		fmt.Println(err)
-	}
 	
 	router := gin.Default()
-	router.Use(nrgin.Middleware(app))
-
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST"},

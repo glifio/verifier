@@ -2,28 +2,32 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/ipfs/go-cid"
 )
 
+func sendSlackMessage(message string) {
+	sendSlackNotification("https://errors.glif.io/verifier-cron-job-failed", message)
+	return
+}
+
 func reconcileVerifierMessages() {
 	users, err := getLockedUsers(UserLock_Verifier)
 	if err != nil {
-		fmt.Println("ERROR FOR NR", err.Error())
+		sendSlackMessage(err.Error())
 		return
 	}
 
 	for _, user := range users {
 		cid, err := cid.Decode(user.MostRecentDataCapCid)
 		if err != nil {
-			fmt.Println("ERROR FOR NR", err.Error())
+			sendSlackMessage(err.Error())
 			return
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
-			fmt.Println("ERROR FOR NR", err.Error())
+			sendSlackMessage(err.Error())
 			return
 		}
 
@@ -34,11 +38,11 @@ func reconcileVerifierMessages() {
 			user.Locked_Verifier = false
 			err = saveUser(user)
 			if err != nil {
-				fmt.Println("ERR FOR NR", err)
+				sendSlackMessage(err.Error())
 				return
 			}
 		} else if finished {
-			fmt.Println("TRANSACTION FAILED ERR FOR NR", mLookup.Receipt.ExitCode.Error(), mLookup.Receipt.ExitCode.Error())
+			sendSlackMessage("TRANSACTION FAILED: "+mLookup.Receipt.ExitCode.Error())
 			return
 		}
 	}
@@ -47,19 +51,19 @@ func reconcileVerifierMessages() {
 func reconcileFaucetMessages() {
 	users, err := getLockedUsers(UserLock_Faucet)
 	if err != nil {
-		fmt.Println("ERROR FOR NR", err.Error())
+		sendSlackMessage(err.Error())
 		return
 	}
 
 	for _, user := range users {
 		cid, err := cid.Decode(user.MostRecentFaucetGrantCid)
 		if err != nil {
-			fmt.Println("ERROR FOR NR", err.Error())
+			sendSlackMessage(err.Error())
 			return
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
-			fmt.Println("ERROR FOR NR", err.Error())
+			sendSlackMessage(err.Error())
 			return
 		}
 
@@ -70,11 +74,11 @@ func reconcileFaucetMessages() {
 			user.Locked_Faucet = false
 			err = saveUser(user)
 			if err != nil {
-				fmt.Println("ERR FOR NR", err)
+				sendSlackMessage(err.Error())
 				return
 			}
 		} else if finished {
-			fmt.Println("TRANSACTION FAILED ERR FOR NR", mLookup.Receipt.ExitCode.Error(), mLookup.Receipt.ExitCode.Error())
+			sendSlackMessage("TRANSACTION FAILED: "+mLookup.Receipt.ExitCode.Error())
 			return
 		}
 	}
