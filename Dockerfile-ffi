@@ -1,0 +1,15 @@
+FROM rust:1.44-slim-buster AS builder
+RUN apt update
+RUN apt install -y make g++ git bash jq opencl-headers libclang-dev
+WORKDIR /
+ADD .gitmodules .gitmodules
+ADD .git .git
+ADD ./fil-blst ./fil-blst/
+ADD ./filecoin-ffi ./filecoin-ffi/
+RUN git submodule update --init
+RUN cd filecoin-ffi && make
+
+FROM debian:buster-slim AS final
+WORKDIR /
+COPY --from=builder /filecoin-ffi ./filecoin-ffi/
+COPY --from=builder /fil-blst ./fil-blst/
