@@ -23,13 +23,11 @@ func initCounter(ctx context.Context) error {
 	rdb := initRedis()
 
 	_, err := rdb.Get(ctx, partitionKey).Result()
-	if err != nil && err == redis.Nil {
-		rdb.Set(ctx, partitionKey, 0, 0)
-	}
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return err
 	}
-	
+
+	rdb.Set(ctx, partitionKey, 0, 0)
 	return nil
 }
 

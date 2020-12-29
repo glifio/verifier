@@ -48,8 +48,6 @@ type Env struct {
 	FaucetRateLimit           time.Duration   `env:"FAUCET_RATE_LIMIT" envDefault:"24h"`
 	FaucetGrantSize           types.FIL       `env:"FAUCET_GRANT_SIZE" envDefault:"10fil"`
 	FaucetMinAccountAgeDays   uint            `env:"FAUCET_MIN_ACCOUNT_AGE" envDefault:"180"`
-	// new relic
-	NewRelicLicence			  string		  `env:"NEW_RELIC_LICENSE"`
 }
 
 var env Env
