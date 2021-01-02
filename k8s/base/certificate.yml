@@ -1,0 +1,8 @@
+apiVersion: networking.gke.io/v1beta2
+kind: ManagedCertificate
+metadata:
+  name: verifier-certificate
+spec:
+  domains:
+    - nerpa.verify.backend.glif.io
+    - mainnet.verify.backend.glif.io

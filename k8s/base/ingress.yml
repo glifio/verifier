@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: verifier-ingress
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: glif-gke-ip
+    networking.gke.io/managed-certificates: verifier-certificate
+    # kubernetes.io/ingress.allow-http: "false"
+spec:
+  rules:
+    - host: nerpa.verifier.backend.glif.io
+      http:
+        paths:
+          - backend:
+              serviceName: nerpa-verifier-service
+              servicePort: 80
+    - host: mainnet.verifier.backend.glif.io
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: mainnet-verifier-service
+              servicePort: 80
