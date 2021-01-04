@@ -58,12 +58,14 @@ func main() {
 	if env.Mode == FaucetMode {
 		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
 		fmt.Println("Faucet min GH account age days: ", env.FaucetMinAccountAgeDays)
+		fmt.Println("Imported faucet: ", FaucetAddr.String())
 		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
 		c.AddFunc("@hourly", reconcileFaucetMessages)
 	} else if env.Mode == VerifierMode {
 		fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
 		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
 		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
+		fmt.Println("Imported verifier: ", VerifierAddr.String())
 		registerVerifierHandlers(router)
 		c.AddFunc("@hourly", reconcileVerifierMessages)
 	} else {
@@ -72,6 +74,8 @@ func main() {
 		fmt.Println("Verifier min GH account age: ", env.VerifierMinAccountAgeDays)
 		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
 		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
+		fmt.Println("Imported faucet: ", FaucetAddr.String())
+		fmt.Println("Imported verifier: ", VerifierAddr.String())
 		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
 		registerVerifierHandlers(router)
 		c.AddFunc("@hourly", reconcileFaucetMessages)
