@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Build and Deploy to GKE
+name: Build and Deploy nerpa verifier to GKE
 
 on:
   push:
@@ -24,9 +24,9 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: glif-cluster
   GKE_ZONE: us-central1-a
-  DEPLOYMENT_NAME: verifier-backend
+  DEPLOYMENT_NAME: nerpa-verifier-deployment
   IMAGE: verifier
-  NAMESPACE: nerpa
+  NAMESPACE: glif
 
 jobs:
   setup-build-publish-deploy:
@@ -66,18 +66,20 @@ jobs:
       # Push the Docker image to Google Container Registry
       - name: Publish
         run: |-
-          docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+          docker push "gcr.io/$PROJECT_ID/$IMAGE:latest"
 
       # Set up kustomize
       - name: Set up Kustomize
         run: |-
+          cd k8s/nerpa
           curl -sfLo kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/v3.1.0/kustomize_3.1.0_linux_amd64
           chmod u+x ./kustomize
 
       # Deploy the Docker image to the GKE cluster
       - name: Deploy
         run: |-
-          ./kustomize edit set image gcr.io/PROJECT_ID/IMAGE:TAG=gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA
+          cd k8s/nerpa
+          ./kustomize edit set image gcr.io/PROJECT_ID/IMAGE:TAG=gcr.io/$PROJECT_ID/$IMAGE:latest
           ./kustomize build . | kubectl apply -n $NAMESPACE -f -
           kubectl rollout status deployment/$DEPLOYMENT_NAME -n $NAMESPACE
           kubectl get services -o wide -n $NAMESPACE

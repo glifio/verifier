@@ -1,0 +1,146 @@
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mainnet-verifier-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mainnet-verifier-deployment
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app: mainnet-verifier-deployment
+    spec:
+      containers:
+        - name: mainnet-verifier-deployment
+          image: gcr.io/PROJECT_ID/IMAGE:TAG
+          env:
+            - name: AWS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: AWS_SECRET_KEY
+            - name: LOTUS_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: LOTUS_API_TOKEN
+            - name: MAX_ALLOWANCE_BYTES
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: MAX_ALLOWANCE_BYTES
+            - name: VERIFIER_PK
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: VERIFIER_PK
+            - name: MODE
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: MODE
+            - name: DYNAMODB_TABLE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: DYNAMODB_TABLE_NAME
+            - name: GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: GITHUB_CLIENT_SECRET
+            - name: LOTUS_API_DIAL_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: LOTUS_API_DIAL_ADDR
+            - name: MAX_FEE
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: MAX_FEE
+            - name: REDIS_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: REDIS_ENDPOINT
+            - name: ALLOCATIONS_COUNTER_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: ALLOCATIONS_COUNTER_PWD
+            - name: AWS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: AWS_ACCESS_KEY
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: AWS_REGION
+            - name: GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: GITHUB_CLIENT_ID
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: JWT_SECRET
+            - name: MAX_TOTAL_ALLOCATIONS
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: MAX_TOTAL_ALLOCATIONS
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: REDIS_PASSWORD
+            - name: GIN_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: mainnet-credentials
+                  key: GIN_MODE
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+#          resources:
+#            requests:
+#              cpu: 200m
+#            limits:
+#              cpu: 200m
