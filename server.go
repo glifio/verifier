@@ -26,6 +26,7 @@ func registerVerifierHandlers(router *gin.Engine) {
 	}
 	router.POST("/verify/:target_addr", serveVerifyAccount)
 	router.PUT("/verify/counter/:pwd", serveResetCounter)
+	router.GET("/verify/counter/:pwd", serveCurrentCount)
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
@@ -66,6 +67,8 @@ func main() {
 		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
 		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
 		fmt.Println("Imported verifier: ", VerifierAddr.String())
+		fmt.Println("Max allocations: ", env.MaxTotalAllocations)
+
 		registerVerifierHandlers(router)
 		c.AddFunc("@hourly", reconcileVerifierMessages)
 	} else {
@@ -74,6 +77,7 @@ func main() {
 		fmt.Println("Verifier min GH account age: ", env.VerifierMinAccountAgeDays)
 		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
 		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
+		fmt.Println("Max allocations: ", env.MaxTotalAllocations)
 		fmt.Println("Imported faucet: ", FaucetAddr.String())
 		fmt.Println("Imported verifier: ", VerifierAddr.String())
 		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
@@ -545,4 +549,21 @@ func serveResetCounter(c *gin.Context) {
 		return 
 	}
 	c.JSON(http.StatusAccepted, "")
+}
+
+func serveCurrentCount(c *gin.Context) {
+	password := c.Param("pwd")
+	if password != env.AllocationsCounterResetPword {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not allowed"})
+		return
+	}
+	count, err := getCount(c)
+	if err != nil {
+		slackNotification := "REDIS GET COUNT FAILED: " + err.Error()
+		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return 
+	}
+
+	c.JSON(http.StatusAccepted, count)
 }

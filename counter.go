@@ -27,7 +27,10 @@ func initCounter(ctx context.Context) error {
 		return err
 	}
 
-	rdb.Set(ctx, partitionKey, 0, 0)
+	if (err == redis.Nil) {
+		rdb.Set(ctx, partitionKey, 0, 0)
+	}
+
 	return nil
 }
 
@@ -38,7 +41,8 @@ func getCount(ctx context.Context) (uint, error) {
 	rdb := initRedis()
 	val, err := rdb.Get(ctx, partitionKey).Uint64()
 	if err != nil {
-		return 0, err
+		// if theres an error, just return the count so no allocations get granted
+		return env.MaxTotalAllocations, err
 	}
 	return uint(val), nil
 }
