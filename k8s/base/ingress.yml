@@ -8,16 +8,16 @@ metadata:
     # kubernetes.io/ingress.allow-http: "false"
 spec:
   rules:
-    - host: nerpa.verifier.backend.glif.io
+    - host: nerpa.verify.backend.glif.io
       http:
         paths:
           - backend:
               serviceName: nerpa-verifier-service
               servicePort: 80
-    - host: mainnet.verifier.backend.glif.io
+    - host: mainnet.verify.backend.glif.io
       http:
         paths:
-          - path: /
+          - path: /*
             backend:
               serviceName: mainnet-verifier-service
               servicePort: 80

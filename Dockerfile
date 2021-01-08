@@ -1,4 +1,13 @@
-FROM glif/filecoin-ffi:1.0.0 AS builder
+FROM rust:1.44-slim-buster AS builder
+RUN apt update
+RUN apt install -y make g++ git bash jq opencl-headers libclang-dev
+WORKDIR /
+ADD .gitmodules .gitmodules
+ADD .git .git
+ADD ./fil-blst ./fil-blst/
+ADD ./filecoin-ffi ./filecoin-ffi/
+RUN git submodule update --init
+RUN cd filecoin-ffi && make
 
 FROM golang:1.14.4-buster AS builder-verifier
 RUN apt update
