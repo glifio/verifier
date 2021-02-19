@@ -310,7 +310,7 @@ func lotusSearchMessageResult(ctx context.Context, cid cid.Cid) (*api.MsgLookup,
 	defer closer()
 
 	var mLookup *api.MsgLookup
-	mLookup, err = client.StateWaitMsg(ctx, cid, build.MessageConfidence)
+	mLookup, err = client.StateSearchMsg(ctx, cid)
 	if err != nil {
 		return &api.MsgLookup{}, err
 	}

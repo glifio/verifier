@@ -244,6 +244,24 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
+	// Ensure that the user's account is old enough
+	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
+	// No account less than MinAccountAge is allowed any FIL
+	if !user.HasAccountOlderThan(minAccountAge) {
+		slackNotification := "Requester's ID:" + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
+		return
+	}
+
+	// Ensure that the user hasn't asked for more allocation too recently
+	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
+		slackNotification := "Requester's ID:" + user.ID + "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation: " + user.MostRecentAllocation.String() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/verifier-reallocation-too-soon", slackNotification)
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
+		return
+	}
+
 	// Lock the user for the duration of this operation until cron job cleans it up
 	err = lockUser(userID, UserLock_Verifier)
 	if err != nil {
@@ -284,24 +302,6 @@ func serveVerifyAccount(c *gin.Context) {
 	if dataCap.LessThanEqual(fiftyDataCaps) {
 		slackNotification := "LOW DATA CAP: " + dataCap.String()
 		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
-	}
-
-	// Ensure that the user's account is old enough
-	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
-	// No account less than MinAccountAge is allowed any FIL
-	if !user.HasAccountOlderThan(minAccountAge) {
-		slackNotification := "Requester's ID:" + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
-		return
-	}
-
-	// Ensure that the user hasn't asked for more allocation too recently
-	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
-		slackNotification := "Requester's ID:" + user.ID + "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation: " + user.MostRecentAllocation.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-reallocation-too-soon", slackNotification)
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
-		return
 	}
 
 	targetAddr, err := address.NewFromString(targetAddrStr)
@@ -434,6 +434,17 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
+	targetAddrStr := c.Param("target_addr")
+
+	minAccountAge := time.Duration(env.FaucetMinAccountAgeDays) * 24 * time.Hour
+	// No account less than MinAccountAge is allowed any FIL
+	if !user.HasAccountOlderThan(minAccountAge) {
+		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/faucet-account-too-young", slackNotification)
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
+		return
+	}
+
 	// Lock the user for the duration of this operation
 	err = lockUser(userID, UserLock_Faucet)
 	if err != nil {
@@ -447,16 +458,6 @@ func serveFaucet(c *gin.Context) {
 		return
 	}
 
-	targetAddrStr := c.Param("target_addr")
-
-	minAccountAge := time.Duration(env.FaucetMinAccountAgeDays) * 24 * time.Hour
-	// No account less than MinAccountAge is allowed any FIL
-	if !user.HasAccountOlderThan(minAccountAge) {
-		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/faucet-account-too-young", slackNotification)
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
-		return
-	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
