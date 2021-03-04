@@ -1,6 +1,6 @@
 FROM rust:1.44-slim-buster AS builder
 RUN apt update
-RUN apt install -y make g++ git bash jq opencl-headers libclang-dev
+RUN apt install -y make g++ git bash jq opencl-headers libclang-dev hwloc libhwloc-dev
 WORKDIR /
 ADD .gitmodules .gitmodules
 ADD .git .git
@@ -10,7 +10,7 @@ RUN cd filecoin-ffi && make
 
 FROM golang:1.16.0-buster AS builder-verifier
 RUN apt update
-RUN apt install -y pkg-config gcc mesa-opencl-icd ocl-icd-opencl-dev hwloc
+RUN apt install -y pkg-config gcc mesa-opencl-icd ocl-icd-opencl-dev hwloc libhwloc-dev
 WORKDIR /verifier
 COPY --from=builder /filecoin-ffi ./filecoin-ffi/
 ADD *.go ./
