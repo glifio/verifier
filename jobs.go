@@ -20,11 +20,6 @@ func reconcileVerifierMessages() {
 	}
 
 	for _, user := range users {
-		if (user.MostRecentDataCapCid == "") {
-			user.Locked_Verifier = false
-			err = saveUser(user)
-			return
-		}
 		cid, err := cid.Decode(user.MostRecentDataCapCid)
 		if err != nil {
 			sendSlackMessage(err.Error())
@@ -61,11 +56,6 @@ func reconcileFaucetMessages() {
 	}
 
 	for _, user := range users {
-		if (user.MostRecentFaucetGrantCid == "") {
-			user.Locked_Faucet = false
-			err = saveUser(user)
-			return
-		}
 		cid, err := cid.Decode(user.MostRecentFaucetGrantCid)
 		if err != nil {
 			sendSlackMessage(err.Error())

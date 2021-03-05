@@ -18,12 +18,11 @@ import (
 	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/actors"
 	"github.com/filecoin-project/lotus/chain/actors/adt"
-	verifreg1 "github.com/filecoin-project/lotus/chain/actors/builtin/verifreg"
+	verifregany "github.com/filecoin-project/lotus/chain/actors/builtin/verifreg"
 	"github.com/filecoin-project/lotus/chain/types"
 	cliutil "github.com/filecoin-project/lotus/cli/util"
-	builtin0 "github.com/filecoin-project/specs-actors/actors/builtin"
-	"github.com/filecoin-project/specs-actors/v2/actors/builtin"
-	"github.com/filecoin-project/specs-actors/v2/actors/builtin/verifreg"
+	"github.com/filecoin-project/specs-actors/v3/actors/builtin"
+	"github.com/filecoin-project/specs-actors/v3/actors/builtin/verifreg"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
 	cbor "github.com/ipfs/go-ipld-cbor"
@@ -52,9 +51,9 @@ func lotusVerifyAccount(ctx context.Context, targetAddr string, allowance types.
 	msg := &types.Message{
 		To:     builtin.VerifiedRegistryActorAddr,
 		From:   VerifierAddr,
-		Method: builtin0.MethodsVerifiedRegistry.AddVerifiedClient,
+		Method: builtin.MethodsVerifiedRegistry.AddVerifiedClient,
 		Params: params,
-		Nonce: nonce,
+		Nonce:  nonce,
 	}
 
 	sendSpec := &api.MessageSendSpec{
@@ -230,7 +229,7 @@ func lotusCheckVerifierRemainingBytes(ctx context.Context, targetAddr string) (b
 	apibs := apibstore.NewAPIBlockstore(api)
 	store := adt.WrapStore(ctx, cbor.NewCborStore(apibs))
 
-	st, err := verifreg1.Load(store, act)
+	st, err := verifregany.Load(store, act)
 	if err != nil {
 		return big.Int{}, err
 	}
@@ -310,7 +309,7 @@ func lotusSearchMessageResult(ctx context.Context, cid cid.Cid) (*api.MsgLookup,
 	defer closer()
 
 	var mLookup *api.MsgLookup
-	mLookup, err = client.StateWaitMsg(ctx, cid, build.MessageConfidence)
+	mLookup, err = client.StateSearchMsg(ctx, cid)
 	if err != nil {
 		return &api.MsgLookup{}, err
 	}
