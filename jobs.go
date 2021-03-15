@@ -13,6 +13,7 @@ func sendSlackMessage(message string) {
 }
 
 func reconcileVerifierMessages() {
+	sendSlackMessage("RUNNING VERIFIER JOB")
 	users, err := getLockedUsers(UserLock_Verifier)
 	if err != nil {
 		sendSlackMessage(err.Error())
@@ -51,6 +52,7 @@ func reconcileVerifierMessages() {
 }
 
 func reconcileFaucetMessages() {
+	sendSlackMessage("RUNNING FAUCET JOB")
 	users, err := getLockedUsers(UserLock_Faucet)
 	if err != nil {
 		sendSlackMessage(err.Error())
