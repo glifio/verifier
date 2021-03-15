@@ -20,6 +20,9 @@ RUN go build -o /app .
 FROM debian:buster-slim AS final
 COPY --from=builder-verifier /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder-verifier /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so.1
+COPY --from=builder-verifier /usr/lib/x86_64-linux-gnu/libhwloc.so.5 /usr/lib/x86_64-linux-gnu/libhwloc.so.5 
+COPY --from=builder-verifier /usr/lib/x86_64-linux-gnu/libnuma.so.1 /usr/lib/x86_64-linux-gnu/libnuma.so.1
+COPY --from=builder-verifier /usr/lib/x86_64-linux-gnu/libltdl.so.7 /usr/lib/x86_64-linux-gnu/libltdl.so.7
 WORKDIR /verifier
 COPY --from=builder-verifier /app .
 
