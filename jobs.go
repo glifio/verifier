@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"time"
-
+  "strconv"
 	"github.com/ipfs/go-cid"
 )
 
@@ -13,10 +13,10 @@ func sendSlackMessage(message string) {
 }
 
 func reconcileVerifierMessages() {
-	sendSlackMessage("RUNNING VERIFIER JOB")
 	users, err := getLockedUsers(UserLock_Verifier)
+	sendSlackMessage("RUNNING VERIFIER JOB. Users: "+strconv.Itoa(len(users)))
 	if err != nil {
-		sendSlackMessage(err.Error())
+		sendSlackMessage(err.Error()+"error getting locked users")
 		return
 	}
 
