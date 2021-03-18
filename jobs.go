@@ -14,7 +14,6 @@ func sendSlackMessage(message string) {
 
 func reconcileVerifierMessages() {
 	users, err := getLockedUsers(UserLock_Verifier)
-	sendSlackMessage("RUNNING VERIFIER JOB. Users: "+strconv.Itoa(len(users)))
 	if err != nil {
 		sendSlackMessage(err.Error()+"error getting locked users")
 		return
@@ -24,13 +23,11 @@ func reconcileVerifierMessages() {
 		cid, err := cid.Decode(user.MostRecentDataCapCid)
 		if err != nil {
 			sendSlackMessage(err.Error())
-			sendSlackMessage("Helper to try and debug cid.Decode call: "+ cid.String())
 			return
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
 			sendSlackMessage(err.Error())
-			sendSlackMessage("Helper to try and debug lotusSearchMsgResult call: "+ cid.String())
 			return
 		}
 
