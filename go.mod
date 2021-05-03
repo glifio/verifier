@@ -3,14 +3,15 @@ module github.com/openworklabs/oauthserver
 go 1.14
 
 require (
+	github.com/Jeffail/gabs v1.4.0 // indirect
 	github.com/aws/aws-sdk-go v1.37.24
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-jsonrpc v0.1.4-0.20210217175800-45ea43ac2bec
 	github.com/filecoin-project/go-state-types v0.1.0
-	github.com/filecoin-project/lotus v1.5.0
-	github.com/filecoin-project/specs-actors/v3 v3.0.3
+	github.com/filecoin-project/lotus v1.8.0
+	github.com/filecoin-project/specs-actors/v4 v4.0.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-redis/redis/v8 v8.6.0
