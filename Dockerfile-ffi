@@ -6,7 +6,7 @@ ADD .gitmodules .gitmodules
 ADD .git .git
 ADD ./fil-blst ./fil-blst/
 ADD ./filecoin-ffi ./filecoin-ffi/
-RUN git submodule update --init
+RUN git submodule update --init --recursive
 RUN cd filecoin-ffi && make
 
 FROM debian:buster-slim AS final
