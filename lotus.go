@@ -14,6 +14,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/client"
+	"github.com/filecoin-project/lotus/api/v0api"
 	apibstore "github.com/filecoin-project/lotus/blockstore"
 	"github.com/filecoin-project/lotus/chain/actors"
 	"github.com/filecoin-project/lotus/chain/actors/adt"
@@ -244,18 +245,18 @@ func lotusCheckVerifierRemainingBytes(ctx context.Context, targetAddr string) (b
 	return dcap, nil
 }
 
-func lotusGetFullNodeAPI(ctx context.Context) (apiClient api.FullNode, closer jsonrpc.ClientCloser, err error) {
+func lotusGetFullNodeAPI(ctx context.Context) (apiClient v0api.FullNode, closer jsonrpc.ClientCloser, err error) {
 	err = retry(ctx, func() error {
 		ainfo := cliutil.APIInfo{Token: []byte(env.LotusAPIToken)}
 
 		var innerErr error
-		apiClient, closer, innerErr = client.NewFullNodeRPCV1(ctx, env.LotusAPIDialAddr, ainfo.AuthHeader())
+		apiClient, closer, innerErr = client.NewFullNodeRPCV0(ctx, env.LotusAPIDialAddr, ainfo.AuthHeader())
 		return innerErr
 	})
 	return
 }
 
-func lotusSendFIL(ctx context.Context, lapi api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
+func lotusSendFIL(ctx context.Context, lapi v0api.FullNode, fromAddr, toAddr address.Address, filAmount types.FIL) (cid.Cid, error) {
 	nonce, err := lapi.MpoolGetNonce(ctx, fromAddr)
 	if err != nil {
 		return cid.Cid{}, err
@@ -308,7 +309,7 @@ func lotusSearchMessageResult(ctx context.Context, cid cid.Cid) (*api.MsgLookup,
 	defer closer()
 
 	var mLookup *api.MsgLookup
-	mLookup, err = client.StateSearchMsg(ctx, types.EmptyTSK, cid, 0, false)
+	mLookup, err = client.StateSearchMsg(ctx, cid)
 	if err != nil {
 		return &api.MsgLookup{}, err
 	}
