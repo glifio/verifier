@@ -1,4 +1,4 @@
-FROM rust:1.44-slim-buster AS builder
+FROM golang:1.16.0-buster AS builder
 RUN apt update
 RUN apt install -y make g++ git bash jq opencl-headers libclang-dev hwloc libhwloc-dev
 WORKDIR /
