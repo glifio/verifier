@@ -5,7 +5,7 @@ WORKDIR /
 ADD .gitmodules .gitmodules
 ADD .git .git
 ADD ./filecoin-ffi ./filecoin-ffi/
-RUN git submodule update --init
+RUN git submodule update --init --recursive
 RUN cd filecoin-ffi && make
 
 FROM golang:1.16.0-buster AS builder-verifier
