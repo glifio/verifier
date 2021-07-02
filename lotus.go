@@ -13,9 +13,8 @@ import (
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/lotus/api"
-	apibstore "github.com/filecoin-project/lotus/blockstore"
 	"github.com/filecoin-project/lotus/api/client"
-	"github.com/filecoin-project/lotus/build"
+	apibstore "github.com/filecoin-project/lotus/blockstore"
 	"github.com/filecoin-project/lotus/chain/actors"
 	"github.com/filecoin-project/lotus/chain/actors/adt"
 	verifregany "github.com/filecoin-project/lotus/chain/actors/builtin/verifreg"
@@ -250,7 +249,7 @@ func lotusGetFullNodeAPI(ctx context.Context) (apiClient api.FullNode, closer js
 		ainfo := cliutil.APIInfo{Token: []byte(env.LotusAPIToken)}
 
 		var innerErr error
-		apiClient, closer, innerErr = client.NewFullNodeRPC(ctx, env.LotusAPIDialAddr, ainfo.AuthHeader())
+		apiClient, closer, innerErr = client.NewFullNodeRPCV1(ctx, env.LotusAPIDialAddr, ainfo.AuthHeader())
 		return innerErr
 	})
 	return
@@ -309,32 +308,12 @@ func lotusSearchMessageResult(ctx context.Context, cid cid.Cid) (*api.MsgLookup,
 	defer closer()
 
 	var mLookup *api.MsgLookup
-	mLookup, err = client.StateSearchMsg(ctx, cid)
+	mLookup, err = client.StateSearchMsg(ctx, types.EmptyTSK, cid, 0, false)
 	if err != nil {
 		return &api.MsgLookup{}, err
 	}
 
 	return mLookup, nil
-}
-
-func lotusWaitMessageResult(ctx context.Context, cid cid.Cid) (bool, error) {
-	client, closer, err := lotusGetFullNodeAPI(ctx)
-	if err != nil {
-		log.Println("error getting FullNodeAPI:", err)
-		return false, err
-	}
-	defer closer()
-
-	var mwait *api.MsgLookup
-	err = retry(ctx, func() error {
-		mwait, err = client.StateWaitMsg(ctx, cid, build.MessageConfidence)
-		return err
-	})
-	if err != nil {
-		log.Println("error awaiting message result:", err)
-		return false, err
-	}
-	return mwait.Receipt.ExitCode == 0, nil
 }
 
 func retry(ctx context.Context, fn func() error) (err error) {
