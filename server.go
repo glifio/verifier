@@ -10,7 +10,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -231,18 +230,6 @@ func serveVerifyAccount(c *gin.Context) {
 	// Ensure that the user hasn't used this address before
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-
-	remaining, err := lotusCheckAccountRemainingBytes(ctx, targetAddrStr)
-	if err != nil {
-		slackNotification := "LOTUS CHECK ACCOUNT REMAINING BYTES FAILED" + err.Error() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if remaining.GreaterThan(big.NewInt(0)) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": ErrVerifiedClientExists.Error()})
-		return
-	}
 
 	// Ensure that the user's account is old enough
 	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
