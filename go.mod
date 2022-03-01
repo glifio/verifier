@@ -8,9 +8,9 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-jsonrpc v0.1.4-0.20210217175800-45ea43ac2bec
-	github.com/filecoin-project/go-state-types v0.1.1-0.20210915140513-d354ccf10379
+	github.com/filecoin-project/go-state-types v0.1.3
 	github.com/filecoin-project/lotus v1.13.0
-	github.com/filecoin-project/specs-actors/v4 v4.0.1
+	github.com/filecoin-project/specs-actors/v7 v7.0.0 // indirect
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-redis/redis/v8 v8.11.4
