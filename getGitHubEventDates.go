@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type GithubEvent struct {
@@ -14,8 +15,8 @@ type GithubEvent struct {
 /*
  * Get all "created_at" dates for GitHub events belonging to the provided GitHub account
  */
-func getGitHubEventDates(account string) ([]string, error) {
-	dates := []string{}
+func getGitHubEventDates(account string) ([]time.Time, error) {
+	dates := []time.Time{}
 	url := fmt.Sprintf("https://api.github.com/users/%v/events?per_page=100", account)
 	for url != "" {
 		pageDates, next, err := getGitHubEventPageDates(url)
@@ -32,7 +33,7 @@ func getGitHubEventDates(account string) ([]string, error) {
  * Get all "created_at" dates from the provided GitHub event page URL.
  * Also returns the URL for the next GitHub event page, if it exists.
  */
-func getGitHubEventPageDates(url string) ([]string, string, error) {
+func getGitHubEventPageDates(url string) ([]time.Time, string, error) {
 	// Create HTTP client and request
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
@@ -62,9 +63,13 @@ func getGitHubEventPageDates(url string) ([]string, string, error) {
 	}
 
 	// Extract "created_at" dates
-	dates := []string{}
+	dates := []time.Time{}
 	for _, event := range githubEvents {
-		dates = append(dates, event.CreatedAt)
+		date, err := time.Parse("2006-01-02T15:04:05Z", event.CreatedAt)
+		if err != nil {
+			return nil, "", err
+		}
+		dates = append(dates, date)
 	}
 
 	// Retrieve the next page URL
