@@ -32,6 +32,7 @@ type Env struct {
 	BlockedAddresses          string          `env:"BLOCKED_ADDRESSES"`
 	GithubClientID            string          `env:"GITHUB_CLIENT_ID,required"`
 	GithubClientSecret        string          `env:"GITHUB_CLIENT_SECRET,required"`
+	FilplusApiKey             string          `env:"FILPLUS_API_KEY,required"`
 	MaxFee                    types.FIL       `env:"MAX_FEE" envDefault:"0afil"`
 	Mode                      Mode            `env:"MODE"`
 	// verifier specific env vars
