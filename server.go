@@ -38,9 +38,13 @@ func main() {
 	fmt.Println("Max transaction fee: ", env.MaxFee)
 	fmt.Println("mode: ", env.Mode)
 
-	if err := initBlockListCache(); err != nil { log.Panic(err) }
-	if _, err := instantiateWallet(&gin.Context{}); err != nil { log.Panic(err) }
-	
+	if err := initBlockListCache(); err != nil {
+		log.Panic(err)
+	}
+	if _, err := instantiateWallet(&gin.Context{}); err != nil {
+		log.Panic(err)
+	}
+
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -132,7 +136,7 @@ func handleError(route string) gin.HandlerFunc {
 }
 
 func servePong(c *gin.Context) {
-		c.JSON(http.StatusOK, "pong")
+	c.JSON(http.StatusOK, "pong")
 }
 
 func serveOauth(c *gin.Context) {
@@ -373,7 +377,7 @@ func serveCheckAccountRemainingBytes(c *gin.Context) {
 	}
 
 	type Response struct {
-		RemainingBytes       string    `json:"remainingBytes"`
+		RemainingBytes string `json:"remainingBytes"`
 	}
 	c.JSON(http.StatusOK, Response{dcap.String()})
 }
@@ -444,7 +448,6 @@ func serveFaucet(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
 		return
 	}
-
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -534,7 +537,7 @@ func serveResetCounter(c *gin.Context) {
 		slackNotification := "REDIS RESET COUNT FAILED: " + err.Error()
 		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return 
+		return
 	}
 	c.JSON(http.StatusAccepted, "")
 }
@@ -550,7 +553,7 @@ func serveCurrentCount(c *gin.Context) {
 		slackNotification := "REDIS GET COUNT FAILED: " + err.Error()
 		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return 
+		return
 	}
 
 	c.JSON(http.StatusAccepted, count)
