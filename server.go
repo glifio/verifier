@@ -10,7 +10,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -30,6 +29,7 @@ func registerVerifierHandlers(router *gin.Engine) {
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/max-allowance/:target_addr", serveMaxAllowance)
+	router.GET("/max-allowance-github/:github_user/:target_addr", serveMaxAllowanceGithub)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
 	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
 }
@@ -392,6 +392,23 @@ func serveMaxAllowance(c *gin.Context) {
 	// Get max allowance for user
 	targetAddr := c.Param("target_addr")
 	maxAllowance, err := user.GetMaxAllowance(targetAddr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Respond with max allowance
+	type Response struct {
+		MaxAllowance string `json:"max_allowance"`
+	}
+	c.JSON(http.StatusOK, Response{MaxAllowance: maxAllowance.String()})
+}
+
+func serveMaxAllowanceGithub(c *gin.Context) {
+	// Get max allowance for user
+	targetAddr := c.Param("target_addr")
+	githubUser := c.Param("github_user")
+	maxAllowance, err := getMaxAllowanceForGithub(githubUser, targetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
