@@ -108,6 +108,7 @@ var (
 	ErrUserLocked           = errors.New("Our servers are processing your last transaction. Come back tomorrow.")
 	ErrAddressBlocked       = errors.New("This address or Miner ID has reached its maximum usage of the faucet.")
 	ErrCounterReached       = errors.New("This notary has run out of data cap for today! Come back tomorrow.")
+	ErrMaxAllowanceFailed   = errors.New("Failed to calculate the maximum allowance for the user account and filecoin address")
 )
 
 type UserLock string
@@ -290,7 +291,16 @@ func serveVerifyAccount(c *gin.Context) {
 		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
-	fiftyDataCaps := types.BigMul(env.BaseAllowanceBytes, types.NewInt(50))
+
+	maxAllowance, err := user.GetMaxAllowance(targetAddrStr)
+	if err != nil {
+		slackNotification := "CALCULATING MAX ALLOWANCE FAILED" + err.Error() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/max-allowance-failed", slackNotification)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrMaxAllowanceFailed.Error()})
+		return
+	}
+
+	fiftyDataCaps := types.BigMul(maxAllowance, types.NewInt(50))
 
 	if dataCap.LessThanEqual(fiftyDataCaps) {
 		slackNotification := "LOW DATA CAP: " + dataCap.String()
@@ -320,7 +330,7 @@ func serveVerifyAccount(c *gin.Context) {
 	ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
-	cid, err := lotusVerifyAccount(ctx, targetAddrStr, env.BaseAllowanceBytes)
+	cid, err := lotusVerifyAccount(ctx, targetAddrStr, maxAllowance)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
