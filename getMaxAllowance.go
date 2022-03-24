@@ -6,27 +6,11 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 )
 
-func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, error) {
-	score := env.BaseAllowanceBytes
-
-	// Get event dates from the GitHub account
-	dates, err := getGitHubEventDates(githubAccount)
+func getMaxAllowanceForGithub(githubAccount string, filecoinAddress string) (big.Int, error) {
+	// Check GitHub account activity
+	activityCheck, err := checkGithubAccountActivity(githubAccount, 3)
 	if err != nil {
 		return big.Zero(), err
-	}
-
-	// Evaluate account activity
-	dateCount := len(dates)
-	githubMaxDateCount := 300
-	activityCheck, enoughDates := hasDateInEachMonthBefore(3, dates)
-	historyInsufficient := dateCount == githubMaxDateCount && !enoughDates
-
-	// Apply account activity multiplier.
-	// Github limits the maximum event history. When we have
-	// the maximum amount of events but not enough data to go
-	// back far enough, we give the user the benefit of the doubt.
-	if activityCheck || historyInsufficient {
-		score = big.Mul(score, big.NewInt(2))
 	}
 
 	// Get Filecoin deals multiplier
@@ -35,8 +19,34 @@ func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, er
 		return big.Zero(), err
 	}
 
-	score = big.Mul(score, big.NewInt(int64(dealsMultiplier)))
+	// Calculate allowance
+	score := env.BaseAllowanceBytes
+	if activityCheck {
+		score = big.Mul(score, big.NewInt(2))
+	}
+	if dealsMultiplier != 1 {
+		score = big.Mul(score, big.NewInt(int64(dealsMultiplier)))
+	}
 	return score, nil
+}
+
+func checkGithubAccountActivity(githubAccount string, months int) (bool, error) {
+	// Get event dates from the GitHub account
+	dates, err := getGitHubEventDates(githubAccount)
+	if err != nil {
+		return false, err
+	}
+
+	// Evaluate account activity
+	dateCount := len(dates)
+	githubMaxDateCount := 300
+	activityCheck, enoughDates := hasDateInEachMonthBefore(months, dates)
+	historyInsufficient := dateCount == githubMaxDateCount && !enoughDates
+
+	// Github limits the maximum event history. When we have
+	// the maximum amount of events but not enough data to go
+	// back far enough, we give the user the benefit of the doubt.
+	return activityCheck || historyInsufficient, nil
 }
 
 func getFilecoinDealsMultiplier(filecoinAddress string) (int, error) {
