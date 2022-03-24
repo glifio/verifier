@@ -9,7 +9,7 @@ import (
 )
 
 type GithubEvent struct {
-	CreatedAt string `json:"created_at"`
+	CreatedAt string `json:"created_at" binding:"required"`
 }
 
 /*

@@ -9,7 +9,7 @@ import (
 )
 
 type VerifiedDeals struct {
-	Count string `json:"count"`
+	Count string `json:"count" binding:"required"`
 }
 
 /*
