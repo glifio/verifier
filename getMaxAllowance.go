@@ -30,6 +30,11 @@ func getMaxAllowanceForGithub(githubAccount string, filecoinAddress string) (big
 	return score, nil
 }
 
+/*
+ * Returns true when there was public activity in the GitHub account for the past X months.
+ * Also returns true when there was too much recent activity and the returned events from
+ * GitHub do not reach back far enought to give a proper evaluation.
+ */
 func checkGithubAccountActivity(githubAccount string, months int) (bool, error) {
 	// Get event dates from the GitHub account
 	dates, err := getGitHubEventDates(githubAccount)
@@ -49,6 +54,10 @@ func checkGithubAccountActivity(githubAccount string, months int) (bool, error) 
 	return activityCheck || historyInsufficient, nil
 }
 
+/*
+ * Returns a multiplier for the max allowance based on the
+ * verified deal count for the supplied filecoin address
+ */
 func getFilecoinDealsMultiplier(filecoinAddress string) (int, error) {
 	// Get amount or verified deals for Filecoin address
 	dealCount, err := getVerifiedDealCount(filecoinAddress)
