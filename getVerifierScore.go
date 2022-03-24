@@ -29,22 +29,34 @@ func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, er
 		score = big.Mul(score, big.NewInt(2))
 	}
 
-	// Get amount or verified deals for Filecoin address
-	dealCount, err := getVerifiedDealCount(filecoinAddress)
+	// Get Filecoin deals multiplier
+	dealsMultiplier, err := getFilecoinDealsMultiplier(filecoinAddress)
 	if err != nil {
 		return score, err
 	}
 
-	// Apply Filecoin deals multiplier
-	if dealCount > 100 {
-		score = big.Mul(score, big.NewInt(8))
-	} else if dealCount > 10 {
-		score = big.Mul(score, big.NewInt(4))
-	} else if dealCount > 0 {
-		score = big.Mul(score, big.NewInt(2))
+	score = big.Mul(score, big.NewInt(int64(dealsMultiplier)))
+	return score, nil
+}
+
+func getFilecoinDealsMultiplier(filecoinAddress string) (int, error) {
+	// Get amount or verified deals for Filecoin address
+	dealCount, err := getVerifiedDealCount(filecoinAddress)
+	if err != nil {
+		return 0, err
 	}
 
-	return score, nil
+	// Return multiplier
+	if dealCount > 100 {
+		return 8, nil
+	}
+	if dealCount > 10 {
+		return 4, nil
+	}
+	if dealCount > 0 {
+		return 2, nil
+	}
+	return 1, nil
 }
 
 /*
