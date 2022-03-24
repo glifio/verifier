@@ -12,7 +12,7 @@ func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, er
 	// Get event dates from the GitHub account
 	dates, err := getGitHubEventDates(githubAccount)
 	if err != nil {
-		return score, err
+		return big.Zero(), err
 	}
 
 	// Evaluate account activity
@@ -32,7 +32,7 @@ func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, er
 	// Get Filecoin deals multiplier
 	dealsMultiplier, err := getFilecoinDealsMultiplier(filecoinAddress)
 	if err != nil {
-		return score, err
+		return big.Zero(), err
 	}
 
 	score = big.Mul(score, big.NewInt(int64(dealsMultiplier)))
