@@ -39,7 +39,7 @@ type Env struct {
 	VerifierPrivateKey        string          `env:"VERIFIER_PK"`
 	VerifierMinAccountAgeDays uint            `env:"VERIFIER_MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
 	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
-	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
+	BaseAllowanceBytes        big.Int         `env:"BASE_ALLOWANCE_BYTES"`
 	MaxTotalAllocations       uint            `env:"MAX_TOTAL_ALLOCATIONS" envDefault:"0"`
 	AllocationsCounterResetPword string       `env:"ALLOCATIONS_COUNTER_PWD"`
 	RedisEndpoint             string          `env:"REDIS_ENDPOINT"`

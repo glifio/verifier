@@ -68,7 +68,7 @@ func main() {
 	} else if env.Mode == VerifierMode {
 		fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
 		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
-		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
+		fmt.Println("Verifier base allowance: ", env.BaseAllowanceBytes)
 		fmt.Println("Imported verifier: ", VerifierAddr.String())
 		fmt.Println("Max allocations: ", env.MaxTotalAllocations)
 
@@ -79,7 +79,7 @@ func main() {
 		fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAgeDays)
 		fmt.Println("Verifier min GH account age: ", env.VerifierMinAccountAgeDays)
 		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
-		fmt.Println("Verifier grant size: ", env.MaxAllowanceBytes)
+		fmt.Println("Verifier base allowance: ", env.BaseAllowanceBytes)
 		fmt.Println("Max allocations: ", env.MaxTotalAllocations)
 		fmt.Println("Imported faucet: ", FaucetAddr.String())
 		fmt.Println("Imported verifier: ", VerifierAddr.String())
@@ -288,7 +288,7 @@ func serveVerifyAccount(c *gin.Context) {
 		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
-	fiftyDataCaps := types.BigMul(env.MaxAllowanceBytes, types.NewInt(50))
+	fiftyDataCaps := types.BigMul(env.BaseAllowanceBytes, types.NewInt(50))
 
 	if dataCap.LessThanEqual(fiftyDataCaps) {
 		slackNotification := "LOW DATA CAP: " + dataCap.String()
@@ -318,7 +318,7 @@ func serveVerifyAccount(c *gin.Context) {
 	ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
-	cid, err := lotusVerifyAccount(ctx, targetAddrStr, env.MaxAllowanceBytes)
+	cid, err := lotusVerifyAccount(ctx, targetAddrStr, env.BaseAllowanceBytes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

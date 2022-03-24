@@ -8,7 +8,7 @@ import (
 )
 
 func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, error) {
-	score := env.MaxAllowanceBytes
+	score := env.BaseAllowanceBytes
 
 	// Get event dates from the GitHub account
 	dates, err := getGitHubEventDates(githubAccount)
