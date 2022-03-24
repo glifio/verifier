@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/lotus/chain/types"
 )
 
 func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, error) {
@@ -27,7 +26,7 @@ func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, er
 	// the maximum amount of events but not enough data to go
 	// back far enough, we give the user the benefit of the doubt.
 	if activityCheck || historyInsufficient {
-		score = types.BigMul(score, types.NewInt(2))
+		score = big.Mul(score, big.NewInt(2))
 	}
 
 	// Get amount or verified deals for Filecoin address
@@ -38,11 +37,11 @@ func getVerifierScore(githubAccount string, filecoinAddress string) (big.Int, er
 
 	// Apply Filecoin deals multiplier
 	if dealCount > 100 {
-		score = types.BigMul(score, types.NewInt(8))
+		score = big.Mul(score, big.NewInt(8))
 	} else if dealCount > 10 {
-		score = types.BigMul(score, types.NewInt(4))
+		score = big.Mul(score, big.NewInt(4))
 	} else if dealCount > 0 {
-		score = types.BigMul(score, types.NewInt(2))
+		score = big.Mul(score, big.NewInt(2))
 	}
 
 	return score, nil
