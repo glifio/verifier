@@ -310,7 +310,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Get maximum allowance for user / address combination
-	allowance, err := user.GetMaxAllowance(targetAddrStr)
+	allowance, err := user.GetAllowance(targetAddrStr)
 	if err != nil {
 		slackNotification := "CALCULATING MAX ALLOWANCE FAILED" + err.Error() + "\n----------"
 		sendSlackNotification("https://errors.glif.io/max-allowance-failed", slackNotification)
@@ -395,7 +395,7 @@ func serveAllowance(c *gin.Context) {
 
 	// Get the allowance for the user
 	targetAddr := c.Param("target_addr")
-	allowance, err := user.GetMaxAllowance(targetAddr)
+	allowance, err := user.GetAllowance(targetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

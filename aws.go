@@ -42,18 +42,18 @@ func (user User) HasAccountOlderThan(threshold time.Duration) bool {
 	return false
 }
 
-func (user User) GetMaxAllowance(targetAddr string) (big.Int, error) {
+func (user User) GetAllowance(targetAddr string) (big.Int, error) {
 	account, hasAccount := user.Accounts["github"]
 	if !hasAccount {
-		return big.Zero(), errors.New("Can only get max allowance for GitHub accounts")
+		return big.Zero(), errors.New("Can only get allowance for GitHub accounts")
 	}
 
-	maxAllowance, err := getAllowanceGithub(account.Username, targetAddr)
+	allowance, err := getAllowanceGithub(account.Username, targetAddr)
 	if err != nil {
 		return big.Zero(), err
 	}
 
-	return maxAllowance, nil
+	return allowance, nil
 }
 
 func dynamoTable(name string) dynamo.Table {
