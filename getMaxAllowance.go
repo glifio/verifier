@@ -6,6 +6,16 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 )
 
+/*
+ * Returns the absolute maximum allowance that can be granted
+ */
+func getAbsoluteMaxAllowance() big.Int {
+	return big.Mul(env.BaseAllowanceBytes, big.NewInt(16))
+}
+
+/*
+ * Get the maximum allowance for the GitHub user and filecoin address
+ */
 func getMaxAllowanceForGithub(githubAccount string, filecoinAddress string) (big.Int, error) {
 	// Check GitHub account activity
 	activityCheck, err := checkGithubAccountActivity(githubAccount, 3)

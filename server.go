@@ -10,7 +10,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -300,8 +300,7 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	fiftyDataCaps := types.BigMul(maxAllowance, types.NewInt(50))
-
+	fiftyDataCaps := big.Mul(getAbsoluteMaxAllowance(), big.NewInt(50))
 	if dataCap.LessThanEqual(fiftyDataCaps) {
 		slackNotification := "LOW DATA CAP: " + dataCap.String()
 		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
