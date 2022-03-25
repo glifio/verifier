@@ -292,14 +292,6 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	maxAllowance, err := user.GetMaxAllowance(targetAddrStr)
-	if err != nil {
-		slackNotification := "CALCULATING MAX ALLOWANCE FAILED" + err.Error() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/max-allowance-failed", slackNotification)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrMaxAllowanceFailed.Error()})
-		return
-	}
-
 	fiftyDataCaps := big.Mul(getAbsoluteMaxAllowance(), big.NewInt(50))
 	if dataCap.LessThanEqual(fiftyDataCaps) {
 		slackNotification := "LOW DATA CAP: " + dataCap.String()
@@ -314,6 +306,15 @@ func serveVerifyAccount(c *gin.Context) {
 
 	if isAddressBlocked(targetAddr) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAddressBlocked.Error()})
+		return
+	}
+
+	// Get maximum allowance for user / address combination
+	maxAllowance, err := user.GetMaxAllowance(targetAddrStr)
+	if err != nil {
+		slackNotification := "CALCULATING MAX ALLOWANCE FAILED" + err.Error() + "\n----------"
+		sendSlackNotification("https://errors.glif.io/max-allowance-failed", slackNotification)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrMaxAllowanceFailed.Error()})
 		return
 	}
 
