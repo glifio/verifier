@@ -48,7 +48,7 @@ func (user User) GetMaxAllowance(targetAddr string) (big.Int, error) {
 		return big.Zero(), errors.New("Can only get max allowance for GitHub accounts")
 	}
 
-	maxAllowance, err := getMaxAllowanceForGithub(account.Username, targetAddr)
+	maxAllowance, err := getAllowanceGithub(account.Username, targetAddr)
 	if err != nil {
 		return big.Zero(), err
 	}

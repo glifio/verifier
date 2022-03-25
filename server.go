@@ -292,7 +292,7 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	fiftyDataCaps := big.Mul(getAbsoluteMaxAllowance(), big.NewInt(50))
+	fiftyDataCaps := big.Mul(getMaxAllowance(), big.NewInt(50))
 	if dataCap.LessThanEqual(fiftyDataCaps) {
 		slackNotification := "LOW DATA CAP: " + dataCap.String()
 		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
@@ -393,7 +393,7 @@ func serveAllowance(c *gin.Context) {
 		return
 	}
 
-	// Get max allowance for user
+	// Get the allowance for the user
 	targetAddr := c.Param("target_addr")
 	allowance, err := user.GetMaxAllowance(targetAddr)
 	if err != nil {
@@ -409,10 +409,10 @@ func serveAllowance(c *gin.Context) {
 }
 
 func serveAllowanceGithub(c *gin.Context) {
-	// Get max allowance for user
+	// Get the allowance for the user
 	targetAddr := c.Param("target_addr")
 	githubUser := c.Param("github_user")
-	allowance, err := getMaxAllowanceForGithub(githubUser, targetAddr)
+	allowance, err := getAllowanceGithub(githubUser, targetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

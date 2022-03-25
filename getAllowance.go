@@ -7,16 +7,16 @@ import (
 )
 
 /*
- * Returns the absolute maximum allowance that can be granted
+ * Returns the maximum allowance that can be granted
  */
-func getAbsoluteMaxAllowance() big.Int {
+func getMaxAllowance() big.Int {
 	return big.Mul(env.BaseAllowanceBytes, big.NewInt(16))
 }
 
 /*
- * Get the maximum allowance for the GitHub user and filecoin address
+ * Get the allowance for the GitHub user and filecoin address
  */
-func getMaxAllowanceForGithub(githubAccount string, filecoinAddress string) (big.Int, error) {
+func getAllowanceGithub(githubAccount string, filecoinAddress string) (big.Int, error) {
 	// Check GitHub account activity
 	activityCheck, err := checkGithubAccountActivity(githubAccount, 3)
 	if err != nil {
@@ -65,7 +65,7 @@ func checkGithubAccountActivity(githubAccount string, months int) (bool, error) 
 }
 
 /*
- * Returns a multiplier for the max allowance based on the
+ * Returns a multiplier for the allowance based on the
  * verified deal count for the supplied filecoin address
  */
 func getFilecoinDealsMultiplier(filecoinAddress string) (int, error) {
