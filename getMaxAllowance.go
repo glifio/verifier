@@ -44,9 +44,9 @@ func checkGithubAccountActivity(githubAccount string, months int) (bool, error) 
 
 	// Evaluate account activity
 	dateCount := len(dates)
-	githubMaxDateCount := 300
+	githubMaxEventCount := 300
 	activityCheck, enoughDates := hasDateInEachMonthBefore(months, dates)
-	historyInsufficient := dateCount == githubMaxDateCount && !enoughDates
+	historyInsufficient := dateCount == githubMaxEventCount && !enoughDates
 
 	// Github limits the maximum event history. When we have
 	// the maximum amount of events but not enough data to go
