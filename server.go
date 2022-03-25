@@ -310,7 +310,7 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	// Get maximum allowance for user / address combination
-	maxAllowance, err := user.GetMaxAllowance(targetAddrStr)
+	allowance, err := user.GetMaxAllowance(targetAddrStr)
 	if err != nil {
 		slackNotification := "CALCULATING MAX ALLOWANCE FAILED" + err.Error() + "\n----------"
 		sendSlackNotification("https://errors.glif.io/max-allowance-failed", slackNotification)
@@ -330,7 +330,7 @@ func serveVerifyAccount(c *gin.Context) {
 	ctx, cancel = context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
-	cid, err := lotusVerifyAccount(ctx, targetAddrStr, maxAllowance)
+	cid, err := lotusVerifyAccount(ctx, targetAddrStr, allowance)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -347,12 +347,12 @@ func serveVerifyAccount(c *gin.Context) {
 
 	// Respond to the HTTP request
 	type Response struct {
-		Cid          string `json:"cid"`
-		MaxAllowance string `json:"max_allowance"`
+		Cid       string `json:"cid"`
+		Allowance string `json:"allowance"`
 	}
 	c.JSON(http.StatusOK, Response{
-		Cid:          cid.String(),
-		MaxAllowance: maxAllowance.String(),
+		Cid:       cid.String(),
+		Allowance: allowance.String(),
 	})
 }
 
@@ -395,7 +395,7 @@ func serveMaxAllowance(c *gin.Context) {
 
 	// Get max allowance for user
 	targetAddr := c.Param("target_addr")
-	maxAllowance, err := user.GetMaxAllowance(targetAddr)
+	allowance, err := user.GetMaxAllowance(targetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -403,16 +403,16 @@ func serveMaxAllowance(c *gin.Context) {
 
 	// Respond with max allowance
 	type Response struct {
-		MaxAllowance string `json:"max_allowance"`
+		Allowance string `json:"allowance"`
 	}
-	c.JSON(http.StatusOK, Response{MaxAllowance: maxAllowance.String()})
+	c.JSON(http.StatusOK, Response{Allowance: allowance.String()})
 }
 
 func serveMaxAllowanceGithub(c *gin.Context) {
 	// Get max allowance for user
 	targetAddr := c.Param("target_addr")
 	githubUser := c.Param("github_user")
-	maxAllowance, err := getMaxAllowanceForGithub(githubUser, targetAddr)
+	allowance, err := getMaxAllowanceForGithub(githubUser, targetAddr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -420,9 +420,9 @@ func serveMaxAllowanceGithub(c *gin.Context) {
 
 	// Respond with max allowance
 	type Response struct {
-		MaxAllowance string `json:"max_allowance"`
+		Allowance string `json:"allowance"`
 	}
-	c.JSON(http.StatusOK, Response{MaxAllowance: maxAllowance.String()})
+	c.JSON(http.StatusOK, Response{Allowance: allowance.String()})
 }
 
 func serveCheckAccountRemainingBytes(c *gin.Context) {
