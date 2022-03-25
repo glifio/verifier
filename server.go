@@ -347,9 +347,13 @@ func serveVerifyAccount(c *gin.Context) {
 
 	// Respond to the HTTP request
 	type Response struct {
-		Cid string `json:"cid"`
+		Cid          string `json:"cid"`
+		MaxAllowance string `json:"max_allowance"`
 	}
-	c.JSON(http.StatusOK, Response{Cid: cid.String()})
+	c.JSON(http.StatusOK, Response{
+		Cid:          cid.String(),
+		MaxAllowance: maxAllowance.String(),
+	})
 }
 
 func serveListVerifiers(c *gin.Context) {
