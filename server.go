@@ -13,6 +13,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/glifio/go-logger"
 	"github.com/pkg/errors"
 	"gopkg.in/robfig/cron.v2"
 )
@@ -35,6 +36,17 @@ func registerVerifierHandlers(router *gin.Engine) {
 }
 
 func main() {
+	err := logger.Init(logger.LoggerOptions{
+		ModuleName:    "verifier",
+		SentryEnabled: env.SentryDsn != "",
+		SentryDsn:     env.SentryDsn,
+		SentryEnv:     env.SentryEnv,
+		SentryTraces:  0,
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+
 	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
 	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
 	fmt.Println("Max transaction fee: ", env.MaxFee)
@@ -48,6 +60,10 @@ func main() {
 	}
 
 	router := gin.Default()
+	if logger.IsSentryEnabled() {
+		router.Use(logger.GetSentryGin())
+	}
+
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST"},
