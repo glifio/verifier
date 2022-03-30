@@ -33,6 +33,8 @@ type Env struct {
 	GithubClientID            string          `env:"GITHUB_CLIENT_ID,required"`
 	GithubClientSecret        string          `env:"GITHUB_CLIENT_SECRET,required"`
 	FilplusApiKey             string          `env:"FILPLUS_API_KEY,required"`
+	SentryDsn                 string          `env:"SENTRY_DSN"`
+	SentryEnv                 string          `env:"SENTRY_ENV"`
 	MaxFee                    types.FIL       `env:"MAX_FEE" envDefault:"0afil"`
 	Mode                      Mode            `env:"MODE"`
 	// verifier specific env vars
