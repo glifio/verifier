@@ -443,6 +443,8 @@ github.com/glifio/go-logger v0.3.0 h1:JbW0UqewD+aoqSWic+KWROzWPPLsmQGze+O8xttHSa
 github.com/glifio/go-logger v0.3.0/go.mod h1:NpnPFvyH+IsKlCJGeqNpAaLUtTSrs2gD6SQiZmgRYM4=
 github.com/glifio/go-logger v0.4.0 h1:5rDyWEP61Plc0pnWqdUSI+FhdkYdgvJ91V5L7O2OUdM=
 github.com/glifio/go-logger v0.4.0/go.mod h1:NpnPFvyH+IsKlCJGeqNpAaLUtTSrs2gD6SQiZmgRYM4=
+github.com/glifio/go-logger v0.5.0 h1:7K4oDPTjK+qIQlzUlM9MLblUfnUnVkH2K7VzVT+HUPc=
+github.com/glifio/go-logger v0.5.0/go.mod h1:NpnPFvyH+IsKlCJGeqNpAaLUtTSrs2gD6SQiZmgRYM4=
 github.com/go-check/check v0.0.0-20180628173108-788fd7840127/go.mod h1:9ES+weclKsC9YodN5RgxqK/VD9HM9JsCSh7rNhMZE98=
 github.com/go-errors/errors v1.0.1 h1:LUHzmkK3GUKUrL/1gfBUxAHzcev3apQlezX/+O7ma6w=
 github.com/go-errors/errors v1.0.1/go.mod h1:f4zRHt4oKfwPJE5k8C9vpYG+aDHdBFUsgrm6/TyX73Q=
