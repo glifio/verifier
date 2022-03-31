@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -13,16 +12,37 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/glifio/go-logger"
 	"github.com/pkg/errors"
 	"gopkg.in/robfig/cron.v2"
 )
 
-func registerVerifierHandlers(router *gin.Engine) {
+func startFaucet(router *gin.Engine, c *cron.Cron) {
+	logger.Infof("Faucet address: %v", FaucetAddr.String())
+	logger.Infof("Faucet grant size: %v", env.FaucetGrantSize)
+	logger.Infof("Faucet min GH account age days: %v", env.FaucetMinAccountAgeDays)
+
+	// Add routes
+	router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
+
+	// Add cron jobs
+	c.AddFunc("@hourly", reconcileFaucetMessages)
+}
+
+func startVerifier(router *gin.Engine, c *cron.Cron) {
+	logger.Infof("Verifier address: %v", VerifierAddr.String())
+	logger.Infof("Verifier min GH account age days: %v", env.VerifierMinAccountAgeDays)
+	logger.Infof("Verifier rate limit: %v", env.VerifierRateLimit)
+	logger.Infof("Verifier base allowance: %v", env.BaseAllowanceBytes)
+	logger.Infof("Max allocations: %v", env.MaxTotalAllocations)
+
+	// Init counter
 	err := initCounter(&gin.Context{})
 	if err != nil {
-		slackNotification := "REDIS INIT COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		logger.Errorf("REDIS INIT COUNT FAILED: %v", err)
 	}
+
+	// Add routes
 	router.POST("/verify/:target_addr", serveVerifyAccount)
 	router.PUT("/verify/counter/:pwd", serveResetCounter)
 	router.GET("/verify/counter/:pwd", serveCurrentCount)
@@ -32,22 +52,44 @@ func registerVerifierHandlers(router *gin.Engine) {
 	router.GET("/allowance-github/:github_user/:target_addr", serveAllowanceGithub)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
 	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
+
+	// Add cron jobs
+	c.AddFunc("@hourly", reconcileVerifierMessages)
 }
 
 func main() {
-	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
-	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
-	fmt.Println("Max transaction fee: ", env.MaxFee)
-	fmt.Println("mode: ", env.Mode)
+	// Initialize logger
+	err := logger.Init(logger.LoggerOptions{
+		ModuleName:    "verifier",
+		SentryEnabled: env.SentryDsn != "",
+		SentryDsn:     env.SentryDsn,
+		SentryEnv:     env.SentryEnv,
+		SentryLevel:   logger.LogLevelWarning,
+		SentryTraces:  0,
+	})
+	if err != nil {
+		logger.Panic(err)
+	}
+
+	logger.Infof("Lotus node: %v", env.LotusAPIDialAddr)
+	logger.Infof("Dynamodb table name: %v", env.DynamodbTableName)
+	logger.Infof("Max transaction fee: %v", env.MaxFee)
+	logger.Infof("Mode: %v", env.Mode)
 
 	if err := initBlockListCache(); err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 	if _, err := instantiateWallet(&gin.Context{}); err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 
+	// Create Gin engine
 	router := gin.Default()
+	if logger.IsSentryEnabled() {
+		router.Use(logger.GetSentryGin())
+	}
+
+	// Set CORS headers
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST"},
@@ -56,45 +98,31 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	// Add generic routes
 	router.GET("/", servePong)
 	router.GET("/healthz", servePong)
 	router.GET("/ping", servePong)
 	router.POST("/oauth/:provider", serveOauth, handleError("/oauth"))
+
+	// Add app-specific routes
 	c := cron.New()
 	if env.Mode == FaucetMode {
-		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
-		fmt.Println("Faucet min GH account age days: ", env.FaucetMinAccountAgeDays)
-		fmt.Println("Imported faucet: ", FaucetAddr.String())
-		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
-		c.AddFunc("@hourly", reconcileFaucetMessages)
+		startFaucet(router, c)
 	} else if env.Mode == VerifierMode {
-		fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
-		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
-		fmt.Println("Verifier base allowance: ", env.BaseAllowanceBytes)
-		fmt.Println("Imported verifier: ", VerifierAddr.String())
-		fmt.Println("Max allocations: ", env.MaxTotalAllocations)
-
-		registerVerifierHandlers(router)
-		c.AddFunc("@hourly", reconcileVerifierMessages)
+		startVerifier(router, c)
 	} else {
-		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
-		fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAgeDays)
-		fmt.Println("Verifier min GH account age: ", env.VerifierMinAccountAgeDays)
-		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
-		fmt.Println("Verifier base allowance: ", env.BaseAllowanceBytes)
-		fmt.Println("Max allocations: ", env.MaxTotalAllocations)
-		fmt.Println("Imported faucet: ", FaucetAddr.String())
-		fmt.Println("Imported verifier: ", VerifierAddr.String())
-		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
-		registerVerifierHandlers(router)
-		c.AddFunc("@hourly", reconcileFaucetMessages)
-		c.AddFunc("@hourly", reconcileVerifierMessages)
+		startFaucet(router, c)
+		startVerifier(router, c)
 	}
 
+	// Start cron jobs
 	c.Start()
 	defer func() {
 		c.Stop()
 	}()
+
+	// Start Gin server
 	router.Run(":" + env.Port)
 }
 
@@ -133,7 +161,7 @@ func handleError(route string) gin.HandlerFunc {
 			} else {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.(error).Error()})
 			}
-			log.Printf("%v error: %+v", route, err)
+			logger.Errorf("%v: %v", route, err)
 		}
 	}
 }
@@ -242,16 +270,18 @@ func serveVerifyAccount(c *gin.Context) {
 	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(minAccountAge) {
-		slackNotification := "Requester's ID:" + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
+		accountName := user.Accounts["github"].Username
+		accountAge := user.Accounts["github"].CreatedAt.String()
+		logger.Errorf("ACCOUNT TOO NEW: User ID %q, FIL Address %q, Account name %q, Account age %q", user.ID, targetAddrStr, accountName, accountAge)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}
 
 	// Ensure that the user hasn't asked for more allocation too recently
 	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
-		slackNotification := "Requester's ID:" + user.ID + "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation: " + user.MostRecentAllocation.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-reallocation-too-soon", slackNotification)
+		accountName := user.Accounts["github"].Username
+		lastAllocation := user.MostRecentAllocation.String()
+		logger.Errorf("REALLOCATION TOO SOON: User ID %q, FIL Address %q, Account name %q, Last allocation %q", user.ID, targetAddrStr, accountName, lastAllocation)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
 		return
 	}
@@ -271,31 +301,27 @@ func serveVerifyAccount(c *gin.Context) {
 
 	reachedCount, err := reachedCounter(c)
 	if reachedCount {
-		slackNotification := "VERIFIER COUNTER REACHED: " + fmt.Sprint(env.MaxTotalAllocations)
-		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
+		logger.Errorf("VERIFIER COUNTER REACHED: %v", env.MaxTotalAllocations)
 		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
 
 	if err != nil {
-		slackNotification := "VERIFIER COUNTER CALCULATION FAILED: " + fmt.Sprint(env.MaxTotalAllocations) + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
+		logger.Errorf("VERIFIER COUNTER CALCULATION FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
 
 	dataCap, err := lotusCheckVerifierRemainingBytes(c, VerifierAddr.String())
 	if err != nil {
-		slackNotification := "LOTUS CHECK VERIFIER BYTES FAILED" + err.Error() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
+		logger.Errorf("LOTUS CHECK VERIFIER BYTES FAILED: %v", err)
 		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
 
 	fiftyDataCaps := big.Mul(getMaxAllowance(), big.NewInt(50))
 	if dataCap.LessThanEqual(fiftyDataCaps) {
-		slackNotification := "LOW DATA CAP: " + dataCap.String()
-		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
+		logger.Warningf("LOW DATA CAP: %v", dataCap.String())
 	}
 
 	targetAddr, err := address.NewFromString(targetAddrStr)
@@ -312,8 +338,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Get maximum allowance for user / address combination
 	allowance, err := user.GetAllowance(targetAddrStr)
 	if err != nil {
-		slackNotification := "CALCULATING MAX ALLOWANCE FAILED" + err.Error() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/max-allowance-failed", slackNotification)
+		logger.Errorf("CALCULATING MAX ALLOWANCE FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrMaxAllowanceFailed.Error()})
 		return
 	}
@@ -321,8 +346,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Allocate the bytes
 	err = incrementCounter(c)
 	if err != nil {
-		slackNotification := "REDIS INCREMENT COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		logger.Errorf("REDIS INCREMENT COUNT FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -332,6 +356,7 @@ func serveVerifyAccount(c *gin.Context) {
 
 	cid, err := lotusVerifyAccount(ctx, targetAddrStr, allowance)
 	if err != nil {
+		logger.Errorf("LOTUS VERIFY ACCOUNT FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -342,7 +367,7 @@ func serveVerifyAccount(c *gin.Context) {
 	err = saveUser(user)
 	if err != nil {
 		// TODO what to do here?
-		log.Println("error saving user:", err)
+		logger.Errorf("ERROR SAVING USER: %v", err)
 	}
 
 	// Respond to the HTTP request
@@ -491,8 +516,9 @@ func serveFaucet(c *gin.Context) {
 	minAccountAge := time.Duration(env.FaucetMinAccountAgeDays) * 24 * time.Hour
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(minAccountAge) {
-		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/faucet-account-too-young", slackNotification)
+		accountName := user.Accounts["github"].Username
+		accountAge := user.Accounts["github"].CreatedAt.String()
+		logger.Errorf("ACCOUNT TOO NEW: User ID %q, FIL Address %q, Account name %q, Account age %q", user.ID, targetAddrStr, accountName, accountAge)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}
@@ -542,7 +568,7 @@ func serveFaucet(c *gin.Context) {
 
 	err = saveUser(user)
 	if err != nil {
-		fmt.Println("ERR FOR NEW RELIC")
+		logger.Errorf("ERR FOR NEW RELIC: %v", err)
 	}
 
 	// Respond to the HTTP request
@@ -595,8 +621,7 @@ func serveResetCounter(c *gin.Context) {
 		return
 	}
 	if _, err := resetCounter(c); err != nil {
-		slackNotification := "REDIS RESET COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		logger.Errorf("REDIS RESET COUNT FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -611,8 +636,7 @@ func serveCurrentCount(c *gin.Context) {
 	}
 	count, err := getCount(c)
 	if err != nil {
-		slackNotification := "REDIS GET COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		logger.Errorf("REDIS GET COUNT FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
