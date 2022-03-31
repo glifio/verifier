@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -69,7 +68,7 @@ func main() {
 		SentryTraces:  0,
 	})
 	if err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 
 	logger.Infof("Lotus node: %v", env.LotusAPIDialAddr)
@@ -78,10 +77,10 @@ func main() {
 	logger.Infof("Mode: %v", env.Mode)
 
 	if err := initBlockListCache(); err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 	if _, err := instantiateWallet(&gin.Context{}); err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 
 	// Create Gin engine
