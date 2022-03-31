@@ -259,16 +259,18 @@ func serveVerifyAccount(c *gin.Context) {
 	minAccountAge := time.Duration(env.VerifierMinAccountAgeDays) * 24 * time.Hour
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(minAccountAge) {
-		slackNotification := "Requester's ID:" + user.ID + " Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-account-too-young", slackNotification)
+		accountName := user.Accounts["github"].Username
+		accountAge := user.Accounts["github"].CreatedAt.String()
+		logger.Errorf("ACCOUNT TOO NEW: User ID %q, FIL Address %q, Account name %q, Account age %q", user.ID, targetAddrStr, accountName, accountAge)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}
 
 	// Ensure that the user hasn't asked for more allocation too recently
 	if user.MostRecentAllocation.Add(env.VerifierRateLimit).After(time.Now()) {
-		slackNotification := "Requester's ID:" + user.ID + "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Most recent allocation: " + user.MostRecentAllocation.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-reallocation-too-soon", slackNotification)
+		accountName := user.Accounts["github"].Username
+		lastAllocation := user.MostRecentAllocation.String()
+		logger.Errorf("REALLOCATION TOO SOON: User ID %q, FIL Address %q, Account name %q, Last allocation %q", user.ID, targetAddrStr, accountName, lastAllocation)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAllocatedTooRecently.Error()})
 		return
 	}
@@ -288,31 +290,27 @@ func serveVerifyAccount(c *gin.Context) {
 
 	reachedCount, err := reachedCounter(c)
 	if reachedCount {
-		slackNotification := "VERIFIER COUNTER REACHED: " + fmt.Sprint(env.MaxTotalAllocations)
-		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
+		logger.Errorf("VERIFIER COUNTER REACHED: %v", env.MaxTotalAllocations)
 		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
 
 	if err != nil {
-		slackNotification := "VERIFIER COUNTER CALCULATION FAILED: " + fmt.Sprint(env.MaxTotalAllocations) + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-counter-reached", slackNotification)
+		logger.Errorf("VERIFIER COUNTER CALCULATION FAILED: %v", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
 
 	dataCap, err := lotusCheckVerifierRemainingBytes(c, VerifierAddr.String())
 	if err != nil {
-		slackNotification := "LOTUS CHECK VERIFIER BYTES FAILED" + err.Error() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/verifier-tx-failed", slackNotification)
+		logger.Errorf("LOTUS CHECK VERIFIER BYTES FAILED: %v", err.Error())
 		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
 
 	fiftyDataCaps := big.Mul(getMaxAllowance(), big.NewInt(50))
 	if dataCap.LessThanEqual(fiftyDataCaps) {
-		slackNotification := "LOW DATA CAP: " + dataCap.String()
-		sendSlackNotification("https://errors.glif.io/verifier-low-data-cap", slackNotification)
+		logger.Warningf("LOW DATA CAP: %v", dataCap.String())
 	}
 
 	targetAddr, err := address.NewFromString(targetAddrStr)
@@ -329,8 +327,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Get maximum allowance for user / address combination
 	allowance, err := user.GetAllowance(targetAddrStr)
 	if err != nil {
-		slackNotification := "CALCULATING MAX ALLOWANCE FAILED" + err.Error() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/max-allowance-failed", slackNotification)
+		logger.Errorf("CALCULATING MAX ALLOWANCE FAILED: %v", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrMaxAllowanceFailed.Error()})
 		return
 	}
@@ -338,8 +335,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Allocate the bytes
 	err = incrementCounter(c)
 	if err != nil {
-		slackNotification := "REDIS INCREMENT COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		logger.Errorf("REDIS INCREMENT COUNT FAILED: %v", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -359,7 +355,7 @@ func serveVerifyAccount(c *gin.Context) {
 	err = saveUser(user)
 	if err != nil {
 		// TODO what to do here?
-		log.Println("error saving user:", err)
+		logger.Errorf("ERROR SAVING USER: %v", err.Error())
 	}
 
 	// Respond to the HTTP request
