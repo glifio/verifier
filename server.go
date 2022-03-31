@@ -41,6 +41,7 @@ func main() {
 		SentryEnabled: env.SentryDsn != "",
 		SentryDsn:     env.SentryDsn,
 		SentryEnv:     env.SentryEnv,
+		SentryLevel:   logger.LogLevelWarning,
 		SentryTraces:  0,
 	})
 	if err != nil {
