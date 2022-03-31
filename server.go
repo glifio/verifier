@@ -504,8 +504,9 @@ func serveFaucet(c *gin.Context) {
 	minAccountAge := time.Duration(env.FaucetMinAccountAgeDays) * 24 * time.Hour
 	// No account less than MinAccountAge is allowed any FIL
 	if !user.HasAccountOlderThan(minAccountAge) {
-		slackNotification := "Requester's FIL address: " + targetAddrStr + "\nRequester's GH Handle: " + user.Accounts["github"].Username + "\nRequester's Account age: " + user.Accounts["github"].CreatedAt.String() + "\n----------"
-		sendSlackNotification("https://errors.glif.io/faucet-account-too-young", slackNotification)
+		accountName := user.Accounts["github"].Username
+		accountAge := user.Accounts["github"].CreatedAt.String()
+		logger.Errorf("ACCOUNT TOO NEW: User ID %q, FIL Address %q, Account name %q, Account age %q", user.ID, targetAddrStr, accountName, accountAge)
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserTooNew.Error()})
 		return
 	}
@@ -608,8 +609,7 @@ func serveResetCounter(c *gin.Context) {
 		return
 	}
 	if _, err := resetCounter(c); err != nil {
-		slackNotification := "REDIS RESET COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		logger.Errorf("REDIS RESET COUNT FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -624,8 +624,7 @@ func serveCurrentCount(c *gin.Context) {
 	}
 	count, err := getCount(c)
 	if err != nil {
-		slackNotification := "REDIS GET COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		logger.Errorf("REDIS GET COUNT FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
