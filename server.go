@@ -18,11 +18,32 @@ import (
 	"gopkg.in/robfig/cron.v2"
 )
 
-func registerVerifierHandlers(router *gin.Engine) {
+func startFaucet(router *gin.Engine, c *cron.Cron) {
+	logger.Infof("Faucet address: %v", FaucetAddr.String())
+	logger.Infof("Faucet grant size: %v", env.FaucetGrantSize)
+	logger.Infof("Faucet min GH account age days: %v", env.FaucetMinAccountAgeDays)
+
+	// Add routes
+	router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
+
+	// Add cron jobs
+	c.AddFunc("@hourly", reconcileFaucetMessages)
+}
+
+func startVerifier(router *gin.Engine, c *cron.Cron) {
+	logger.Infof("Verifier address: %v", VerifierAddr.String())
+	logger.Infof("Verifier min GH account age days: %v", env.VerifierMinAccountAgeDays)
+	logger.Infof("Verifier rate limit: %v", env.VerifierRateLimit)
+	logger.Infof("Verifier base allowance: %v", env.BaseAllowanceBytes)
+	logger.Infof("Max allocations: %v", env.MaxTotalAllocations)
+
+	// Init counter
 	err := initCounter(&gin.Context{})
 	if err != nil {
 		logger.Errorf("REDIS INIT COUNT FAILED: %v", err)
 	}
+
+	// Add routes
 	router.POST("/verify/:target_addr", serveVerifyAccount)
 	router.PUT("/verify/counter/:pwd", serveResetCounter)
 	router.GET("/verify/counter/:pwd", serveCurrentCount)
@@ -32,9 +53,13 @@ func registerVerifierHandlers(router *gin.Engine) {
 	router.GET("/allowance-github/:github_user/:target_addr", serveAllowanceGithub)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
 	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
+
+	// Add cron jobs
+	c.AddFunc("@hourly", reconcileVerifierMessages)
 }
 
 func main() {
+	// Initialize logger
 	err := logger.Init(logger.LoggerOptions{
 		ModuleName:    "verifier",
 		SentryEnabled: env.SentryDsn != "",
@@ -47,10 +72,10 @@ func main() {
 		log.Panic(err)
 	}
 
-	fmt.Println("Lotus node: ", env.LotusAPIDialAddr)
-	fmt.Println("dynamodb table name: ", env.DynamodbTableName)
-	fmt.Println("Max transaction fee: ", env.MaxFee)
-	fmt.Println("mode: ", env.Mode)
+	logger.Infof("Lotus node: %v", env.LotusAPIDialAddr)
+	logger.Infof("Dynamodb table name: %v", env.DynamodbTableName)
+	logger.Infof("Max transaction fee: %v", env.MaxFee)
+	logger.Infof("Mode: %v", env.Mode)
 
 	if err := initBlockListCache(); err != nil {
 		log.Panic(err)
@@ -59,6 +84,7 @@ func main() {
 		log.Panic(err)
 	}
 
+	// Create Gin engine
 	router := gin.Default()
 	if logger.IsSentryEnabled() {
 		router.Use(logger.GetSentryGin())
@@ -72,45 +98,31 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	// Add generic routes
 	router.GET("/", servePong)
 	router.GET("/healthz", servePong)
 	router.GET("/ping", servePong)
 	router.POST("/oauth/:provider", serveOauth, handleError("/oauth"))
+
+	// Add app-specific routes
 	c := cron.New()
 	if env.Mode == FaucetMode {
-		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
-		fmt.Println("Faucet min GH account age days: ", env.FaucetMinAccountAgeDays)
-		fmt.Println("Imported faucet: ", FaucetAddr.String())
-		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
-		c.AddFunc("@hourly", reconcileFaucetMessages)
+		startFaucet(router, c)
 	} else if env.Mode == VerifierMode {
-		fmt.Println("Verifier min GH account age days: ", env.VerifierMinAccountAgeDays)
-		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
-		fmt.Println("Verifier base allowance: ", env.BaseAllowanceBytes)
-		fmt.Println("Imported verifier: ", VerifierAddr.String())
-		fmt.Println("Max allocations: ", env.MaxTotalAllocations)
-
-		registerVerifierHandlers(router)
-		c.AddFunc("@hourly", reconcileVerifierMessages)
+		startVerifier(router, c)
 	} else {
-		fmt.Println("Faucet grant size: ", env.FaucetGrantSize)
-		fmt.Println("Faucet min GH account age: ", env.FaucetMinAccountAgeDays)
-		fmt.Println("Verifier min GH account age: ", env.VerifierMinAccountAgeDays)
-		fmt.Println("Verifier rate limit: ", env.VerifierRateLimit)
-		fmt.Println("Verifier base allowance: ", env.BaseAllowanceBytes)
-		fmt.Println("Max allocations: ", env.MaxTotalAllocations)
-		fmt.Println("Imported faucet: ", FaucetAddr.String())
-		fmt.Println("Imported verifier: ", VerifierAddr.String())
-		router.POST("/faucet/:target_addr", serveFaucet, handleError("/faucet"))
-		registerVerifierHandlers(router)
-		c.AddFunc("@hourly", reconcileFaucetMessages)
-		c.AddFunc("@hourly", reconcileVerifierMessages)
+		startFaucet(router, c)
+		startVerifier(router, c)
 	}
 
+	// Start cron jobs
 	c.Start()
 	defer func() {
 		c.Stop()
 	}()
+
+	// Start Gin server
 	router.Run(":" + env.Port)
 }
 
@@ -556,7 +568,7 @@ func serveFaucet(c *gin.Context) {
 
 	err = saveUser(user)
 	if err != nil {
-		fmt.Println("ERR FOR NEW RELIC")
+		logger.Errorf("ERR FOR NEW RELIC: %v", err)
 	}
 
 	// Respond to the HTTP request
