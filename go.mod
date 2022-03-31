@@ -13,7 +13,7 @@ require (
 	github.com/filecoin-project/specs-actors/v7 v7.0.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
-	github.com/glifio/go-logger v0.2.0
+	github.com/glifio/go-logger v0.3.0
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/google/uuid v1.3.0
 	github.com/guregu/dynamo v1.10.2
