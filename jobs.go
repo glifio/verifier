@@ -3,30 +3,27 @@ package main
 import (
 	"context"
 	"time"
+
+	"github.com/glifio/go-logger"
 	"github.com/ipfs/go-cid"
 )
-
-func sendSlackMessage(message string) {
-	sendSlackNotification("https://errors.glif.io/verifier-cron-job-failed", message)
-	return
-}
 
 func reconcileVerifierMessages() {
 	users, err := getLockedUsers(UserLock_Verifier)
 	if err != nil {
-		sendSlackMessage(err.Error()+"error getting locked users")
+		logger.Errorf("ERROR GETTING LOCKED USERS: %v", err)
 		return
 	}
 
 	for _, user := range users {
 		cid, err := cid.Decode(user.MostRecentDataCapCid)
 		if err != nil {
-			sendSlackMessage(err.Error())
+			logger.Errorf("ERROR DECODING DATACAP CID: %v", err)
 			return
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
-			sendSlackMessage(err.Error())
+			logger.Errorf("ERROR SEARCHING LOTUS MESSAGE: %v", err)
 			return
 		}
 
@@ -37,33 +34,32 @@ func reconcileVerifierMessages() {
 			user.Locked_Verifier = false
 			err = saveUser(user)
 			if err != nil {
-				sendSlackMessage(err.Error())
+				logger.Errorf("ERROR SAVING USER: %v", err)
 				return
 			}
 		} else if finished {
-			sendSlackMessage("TRANSACTION FAILED: "+mLookup.Receipt.ExitCode.Error())
+			logger.Errorf("TRANSACTION FAILED: %v", mLookup.Receipt.ExitCode.Error())
 			return
 		}
 	}
 }
 
 func reconcileFaucetMessages() {
-	sendSlackMessage("RUNNING FAUCET JOB")
 	users, err := getLockedUsers(UserLock_Faucet)
 	if err != nil {
-		sendSlackMessage(err.Error())
+		logger.Errorf("ERROR GETTING LOCKED USERS: %v", err)
 		return
 	}
 
 	for _, user := range users {
 		cid, err := cid.Decode(user.MostRecentFaucetGrantCid)
 		if err != nil {
-			sendSlackMessage(err.Error())
+			logger.Errorf("ERROR DECODING FAUCET GRANT CID: %v", err)
 			return
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
-			sendSlackMessage(err.Error())
+			logger.Errorf("ERROR SEARCHING LOTUS MESSAGE: %v", err)
 			return
 		}
 
@@ -74,11 +70,11 @@ func reconcileFaucetMessages() {
 			user.Locked_Faucet = false
 			err = saveUser(user)
 			if err != nil {
-				sendSlackMessage(err.Error())
+				logger.Errorf("ERROR SAVING USER: %v", err)
 				return
 			}
 		} else if finished {
-			sendSlackMessage("TRANSACTION FAILED: "+mLookup.Receipt.ExitCode.Error())
+			logger.Errorf("TRANSACTION FAILED: %v", mLookup.Receipt.ExitCode.Error())
 			return
 		}
 	}

@@ -21,8 +21,7 @@ import (
 func registerVerifierHandlers(router *gin.Engine) {
 	err := initCounter(&gin.Context{})
 	if err != nil {
-		slackNotification := "REDIS INIT COUNT FAILED: " + err.Error()
-		sendSlackNotification("https://errors.glif.io/verifier-redis-failed", slackNotification)
+		logger.Errorf("REDIS INIT COUNT FAILED: %v", err)
 	}
 	router.POST("/verify/:target_addr", serveVerifyAccount)
 	router.PUT("/verify/counter/:pwd", serveResetCounter)
@@ -296,14 +295,14 @@ func serveVerifyAccount(c *gin.Context) {
 	}
 
 	if err != nil {
-		logger.Errorf("VERIFIER COUNTER CALCULATION FAILED: %v", err.Error())
+		logger.Errorf("VERIFIER COUNTER CALCULATION FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
 
 	dataCap, err := lotusCheckVerifierRemainingBytes(c, VerifierAddr.String())
 	if err != nil {
-		logger.Errorf("LOTUS CHECK VERIFIER BYTES FAILED: %v", err.Error())
+		logger.Errorf("LOTUS CHECK VERIFIER BYTES FAILED: %v", err)
 		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
@@ -327,7 +326,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Get maximum allowance for user / address combination
 	allowance, err := user.GetAllowance(targetAddrStr)
 	if err != nil {
-		logger.Errorf("CALCULATING MAX ALLOWANCE FAILED: %v", err.Error())
+		logger.Errorf("CALCULATING MAX ALLOWANCE FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrMaxAllowanceFailed.Error()})
 		return
 	}
@@ -335,7 +334,7 @@ func serveVerifyAccount(c *gin.Context) {
 	// Allocate the bytes
 	err = incrementCounter(c)
 	if err != nil {
-		logger.Errorf("REDIS INCREMENT COUNT FAILED: %v", err.Error())
+		logger.Errorf("REDIS INCREMENT COUNT FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -345,6 +344,7 @@ func serveVerifyAccount(c *gin.Context) {
 
 	cid, err := lotusVerifyAccount(ctx, targetAddrStr, allowance)
 	if err != nil {
+		logger.Errorf("LOTUS VERIFY ACCOUNT FAILED: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -355,7 +355,7 @@ func serveVerifyAccount(c *gin.Context) {
 	err = saveUser(user)
 	if err != nil {
 		// TODO what to do here?
-		logger.Errorf("ERROR SAVING USER: %v", err.Error())
+		logger.Errorf("ERROR SAVING USER: %v", err)
 	}
 
 	// Respond to the HTTP request
