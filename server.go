@@ -161,7 +161,7 @@ func handleError(route string) gin.HandlerFunc {
 			} else {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.(error).Error()})
 			}
-			log.Printf("%v error: %+v", route, err)
+			logger.Errorf("%v: %v", route, err)
 		}
 	}
 }
