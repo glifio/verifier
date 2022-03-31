@@ -90,6 +90,7 @@ func main() {
 		router.Use(logger.GetSentryGin())
 	}
 
+	// Set CORS headers
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST"},
