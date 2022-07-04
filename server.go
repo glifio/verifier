@@ -49,7 +49,6 @@ func startVerifier(router *gin.Engine, c *cron.Cron) {
 	router.GET("/verifiers", serveListVerifiers)
 	router.GET("/verified-clients", serveListVerifiedClients)
 	router.GET("/allowance/:target_addr", serveAllowance)
-	router.GET("/allowance-github/:github_user/:target_addr", serveAllowanceGithub)
 	router.GET("/account-remaining-bytes/:target_addr", serveCheckAccountRemainingBytes)
 	router.GET("/verifier-remaining-bytes/:target_addr", serveCheckVerifierRemainingBytes)
 
@@ -319,7 +318,7 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	fiftyDataCaps := big.Mul(getMaxAllowance(), big.NewInt(50))
+	fiftyDataCaps := big.Mul(env.MaxAllowanceBytes, big.NewInt(50))
 	if dataCap.LessThanEqual(fiftyDataCaps) {
 		logger.Warningf("LOW DATA CAP: %v", dataCap.String())
 	}
@@ -335,13 +334,7 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	// Get maximum allowance for user / address combination
-	allowance, err := user.GetAllowance(targetAddrStr)
-	if err != nil {
-		logger.Errorf("CALCULATING MAX ALLOWANCE FAILED: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrMaxAllowanceFailed.Error()})
-		return
-	}
+	allowance := env.MaxAllowanceBytes
 
 	// Allocate the bytes
 	err = incrementCounter(c)
@@ -406,48 +399,11 @@ func serveListVerifiedClients(c *gin.Context) {
 }
 
 func serveAllowance(c *gin.Context) {
-	userID, err := getUserIDFromJWT(c)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	user, err := getUserByID(userID)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
-		return
-	}
-
-	// Get the allowance for the user
-	targetAddr := c.Param("target_addr")
-	allowance, err := user.GetAllowance(targetAddr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	// Respond with allowance
 	type Response struct {
 		Allowance string `json:"allowance"`
 	}
-	c.JSON(http.StatusOK, Response{Allowance: allowance.String()})
-}
-
-func serveAllowanceGithub(c *gin.Context) {
-	// Get the allowance for the user
-	targetAddr := c.Param("target_addr")
-	githubUser := c.Param("github_user")
-	allowance, err := getAllowanceGithub(githubUser, targetAddr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Respond with allowance
-	type Response struct {
-		Allowance string `json:"allowance"`
-	}
-	c.JSON(http.StatusOK, Response{Allowance: allowance.String()})
+	c.JSON(http.StatusOK, Response{Allowance: env.MaxAllowanceBytes.String()})
 }
 
 func serveCheckAccountRemainingBytes(c *gin.Context) {
