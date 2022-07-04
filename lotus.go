@@ -3,10 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
-	"log"
 	"strings"
 	"time"
 
+	"github.com/glifio/go-logger"
 	"github.com/pkg/errors"
 
 	"github.com/filecoin-project/go-address"
@@ -303,7 +303,7 @@ func lotusTranslateError(err *error) {
 func lotusSearchMessageResult(ctx context.Context, cid cid.Cid) (*api.MsgLookup, error) {
 	client, closer, err := lotusGetFullNodeAPI(ctx)
 	if err != nil {
-		log.Println("error getting FullNodeAPI:", err)
+		logger.Errorf("error getting FullNodeAPI: %v", err)
 		return &api.MsgLookup{}, err
 	}
 	defer closer()

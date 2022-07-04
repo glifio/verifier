@@ -28,10 +28,12 @@ type Env struct {
 	AWSSecretKey              string          `env:"AWS_SECRET_KEY,required"`
 	DynamodbTableName         string          `env:"DYNAMODB_TABLE_NAME,required"`
 	LotusAPIDialAddr          string          `env:"LOTUS_API_DIAL_ADDR,required"`
-	LotusAPIToken             string          `env:"LOTUS_API_TOKEN,required"`
+	LotusAPIToken             string          `env:"LOTUS_API_TOKEN"`
 	BlockedAddresses          string          `env:"BLOCKED_ADDRESSES"`
 	GithubClientID            string          `env:"GITHUB_CLIENT_ID,required"`
 	GithubClientSecret        string          `env:"GITHUB_CLIENT_SECRET,required"`
+	SentryDsn                 string          `env:"SENTRY_DSN"`
+	SentryEnv                 string          `env:"SENTRY_ENV"`
 	MaxFee                    types.FIL       `env:"MAX_FEE" envDefault:"0afil"`
 	Mode                      Mode            `env:"MODE"`
 	// verifier specific env vars
@@ -39,6 +41,7 @@ type Env struct {
 	VerifierMinAccountAgeDays uint            `env:"VERIFIER_MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
 	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
 	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
+	BaseAllowanceBytes        big.Int         `env:"BASE_ALLOWANCE_BYTES"`
 	MaxTotalAllocations       uint            `env:"MAX_TOTAL_ALLOCATIONS" envDefault:"0"`
 	AllocationsCounterResetPword string       `env:"ALLOCATIONS_COUNTER_PWD"`
 	RedisEndpoint             string          `env:"REDIS_ENDPOINT"`

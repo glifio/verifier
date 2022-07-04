@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -15,6 +15,19 @@ type OAuthProvider struct {
 	FetchAccountData func(token string) (AccountData, error)
 }
 
+type GithubOAuthRequest struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	Code         string `json:"code"`
+	State        string `json:"state"`
+}
+
+type GithubOAuthResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	Scope       string `json:"scope"`
+}
+
 var oauthProviders = map[string]OAuthProvider{}
 
 func RegisterOAuthProvider(name string, provider OAuthProvider) {
@@ -22,63 +35,43 @@ func RegisterOAuthProvider(name string, provider OAuthProvider) {
 }
 
 func OAuthExchangeCodeForToken(provider OAuthProvider, code, state string) (string, error) {
-	var (
-		buf    = &bytes.Buffer{}
-		client = &http.Client{}
-	)
-
-	err := json.NewEncoder(buf).Encode(struct {
-		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"`
-		Code         string `json:"code"`
-		State        string `json:"state"`
-	}{provider.ClientID, provider.ClientSecret, code, state})
+	// Create the request body
+	reqBody, err := json.Marshal(GithubOAuthRequest{provider.ClientID, provider.ClientSecret, code, state})
 	if err != nil {
-		log.Println("[error in Github oauth request 1] provider:", provider)
-		log.Println("[error in Github oauth request 1] code:", code)
-		log.Println("[error in Github oauth request 1] state:", state)
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", provider.TokenEndpoint, buf)
+	// Create HTTP client and request
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", provider.TokenEndpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
-		log.Println("[error in Github oauth request 2] request JSON:", buf.String())
-		log.Println("[error in Github oauth request 2] provider:", provider)
-		log.Println("[error in Github oauth request 2] code:", code)
-		log.Println("[error in Github oauth request 2] state:", state)
 		return "", err
 	}
+
+	// Set headers and perform request
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println("[error in Github oauth request 3] request JSON:", buf.String())
-		log.Println("[error in Github oauth request 3] provider:", provider)
-		log.Println("[error in Github oauth request 3] code:", code)
-		log.Println("[error in Github oauth request 3] state:", state)
 		return "", err
 	}
-	defer resp.Body.Close()
 
-	type Response struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		Scope       string `json:"scope"`
-	}
-	var tokenResp Response
-	rawResp := &bytes.Buffer{}
-	err = json.NewDecoder(io.TeeReader(resp.Body, rawResp)).Decode(&tokenResp)
+	// Read the response body
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Println("[error in Github oauth request 4] request JSON:", buf.String())
-		log.Println("[error in Github oauth request 4] response JSON:", rawResp.String())
-		log.Println("[error in Github oauth request 4] provider:", provider)
-		log.Println("[error in Github oauth request 4] code:", code)
-		log.Println("[error in Github oauth request 4] state:", state)
 		return "", err
-	} else if tokenResp.AccessToken == "" {
-		log.Println("NIGHTMARE NIGHTMARE NIGHTMARE, TOKEN IS EMPTY FOR ABSOLUTELY NO REASON!  err =", err, "and rawResponse =", rawResp.String())
-		log.Println("NIGHTMARE request JSON =", buf.String())
 	}
-	return tokenResp.AccessToken, nil
+
+	// Parse the response body
+	var oAuthResp GithubOAuthResponse
+	err = json.Unmarshal(respBody, &oAuthResp)
+	if err != nil {
+		return "", err
+	}
+	if oAuthResp.AccessToken == "" {
+		return "", errors.New("GitHub returned empty OAuth access token")
+	}
+
+	return oAuthResp.AccessToken, nil
 }

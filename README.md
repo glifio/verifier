@@ -34,7 +34,7 @@ t15vmf65zmgphczybqlhc6dnfntve4c7sk7eflmly
 
 Local dev:
 
-Load environment variables (been using direnv) so: with a `.nvmrc` and then `direnv allow`
+Load environment variables (been using direnv) so: with a `.envrc` and then `direnv allow`
 
 ```bash
 cd filecoin-ffi && make && cd ../

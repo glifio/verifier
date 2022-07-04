@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/glifio/go-logger"
 )
 
 var blocklist = make(map[address.Address]bool)
@@ -16,7 +16,7 @@ func initBlockListCache() error {
 	}
 
 	for _, e := range strings.Split(env.BlockedAddresses, ",") {
-		fmt.Println("Adding " + e + " to blocklist.")
+		logger.Debugf("Adding %v to blocklist.", e)
 		targetAddr, err := address.NewFromString(e)
 		if err != nil {
 			return err
@@ -30,7 +30,7 @@ func initBlockListCache() error {
 func isAddressBlocked(address address.Address) bool {
 	blocked := blocklist[address]
 	if blocked {
-		fmt.Println("Blocked address: ", address.String())
+		logger.Debugf("Blocked address: %v", address.String())
 	}
 	return blocked
 }
