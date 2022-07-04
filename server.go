@@ -285,29 +285,11 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
-	// Lock the user for the duration of this operation until cron job cleans it up
-	err = lockUser(userID, UserLock_Verifier)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
-		return
-	}
-
-	user, err = getUserByID(userID)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
-		return
-	}
-
+	// failsafe in case we're getting attacked so no one can drain the account of datacap
 	reachedCount, err := reachedCounter(c)
 	if reachedCount {
 		logger.Errorf("VERIFIER COUNTER REACHED: %v", env.MaxTotalAllocations)
 		c.JSON(http.StatusLocked, gin.H{"error": ErrCounterReached.Error()})
-		return
-	}
-
-	if err != nil {
-		logger.Errorf("VERIFIER COUNTER CALCULATION FAILED: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrCounterReached.Error()})
 		return
 	}
 
@@ -331,6 +313,19 @@ func serveVerifyAccount(c *gin.Context) {
 
 	if isAddressBlocked(targetAddr) {
 		c.JSON(http.StatusForbidden, gin.H{"error": ErrAddressBlocked.Error()})
+		return
+	}
+
+	// Lock the user for the duration of this operation until cron job cleans it up
+	err = lockUser(userID, UserLock_Verifier)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrUserLocked.Error()})
+		return
+	}
+
+	user, err = getUserByID(userID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": ErrStaleJWT.Error()})
 		return
 	}
 
