@@ -293,6 +293,12 @@ func serveVerifyAccount(c *gin.Context) {
 		return
 	}
 
+	if err != nil {
+		logger.Errorf("VERIFIER COUNTER CALCULATION FAILED: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrCounterReached.Error()})
+		return
+	}
+
 	dataCap, err := lotusCheckVerifierRemainingBytes(c, VerifierAddr.String())
 	if err != nil {
 		logger.Errorf("LOTUS CHECK VERIFIER BYTES FAILED: %v", err)
