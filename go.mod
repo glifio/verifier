@@ -10,7 +10,7 @@ require (
 	github.com/filecoin-project/go-jsonrpc v0.1.5
 	github.com/filecoin-project/go-state-types v0.1.3
 	github.com/filecoin-project/lotus v1.14.3
-	github.com/filecoin-project/specs-actors/v7 v7.0.0
+	github.com/filecoin-project/specs-actors/v8 v8.0.1
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
 	github.com/glifio/go-logger v0.7.0
