@@ -19,12 +19,12 @@ func reconcileVerifierMessages() {
 		cid, err := cid.Decode(user.MostRecentDataCapCid)
 		if err != nil {
 			logger.Errorf("ERROR DECODING DATACAP CID: %v", err)
-			return
+			continue
 		}
 		mLookup, err := lotusSearchMessageResult(context.TODO(), cid)
 		if err != nil {
 			logger.Errorf("ERROR SEARCHING LOTUS MESSAGE: %v", err)
-			return
+			continue
 		}
 
 		finished := mLookup != nil
@@ -35,11 +35,11 @@ func reconcileVerifierMessages() {
 			err = saveUser(user)
 			if err != nil {
 				logger.Errorf("ERROR SAVING USER: %v", err)
-				return
+				continue
 			}
 		} else if finished {
 			logger.Errorf("TRANSACTION FAILED: %v", mLookup.Receipt.ExitCode.Error())
-			return
+			continue
 		}
 	}
 }
