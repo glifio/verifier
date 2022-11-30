@@ -34,6 +34,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - run: |
+          sudo apt-get install python2.7
+          export CLOUDSDK_PYTHON="/usr/bin/python2"
+
       # Setup gcloud CLI
       - uses: google-github-actions/setup-gcloud@v0
         with:
