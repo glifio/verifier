@@ -12,6 +12,7 @@ import (
 
 // Mode allows the backend to run in only verifier or faucet mode
 type Mode string
+
 const (
 	// FaucetMode runs just the faucet
 	FaucetMode Mode = "FAUCET"
@@ -32,6 +33,7 @@ type Env struct {
 	BlockedAddresses          string          `env:"BLOCKED_ADDRESSES"`
 	GithubClientID            string          `env:"GITHUB_CLIENT_ID,required"`
 	GithubClientSecret        string          `env:"GITHUB_CLIENT_SECRET,required"`
+	FilplusApiKey             string          `env:"FILPLUS_API_KEY,required"`
 	SentryDsn                 string          `env:"SENTRY_DSN"`
 	SentryEnv                 string          `env:"SENTRY_ENV"`
 	MaxFee                    types.FIL       `env:"MAX_FEE" envDefault:"0afil"`
@@ -40,7 +42,6 @@ type Env struct {
 	VerifierPrivateKey        string          `env:"VERIFIER_PK"`
 	VerifierMinAccountAgeDays uint            `env:"VERIFIER_MIN_ACCOUNT_AGE_DAYS" envDefault:"180"`
 	VerifierRateLimit         time.Duration   `env:"VERIFIER_RATE_LIMIT" envDefault:"730h"`
-	MaxAllowanceBytes         big.Int         `env:"MAX_ALLOWANCE_BYTES"`
 	BaseAllowanceBytes        big.Int         `env:"BASE_ALLOWANCE_BYTES"`
 	MaxTotalAllocations       uint            `env:"MAX_TOTAL_ALLOCATIONS" envDefault:"0"`
 	AllocationsCounterResetPword string       `env:"ALLOCATIONS_COUNTER_PWD"`
