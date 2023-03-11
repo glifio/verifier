@@ -32,18 +32,22 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - run: |
           sudo apt-get install python2.7
           export CLOUDSDK_PYTHON="/usr/bin/python2"
 
+      # Configure Workload Identity Federation and generate an access token.
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v0"
+        with:
+          workload_identity_provider: "${{ secrets.GCP_WORKLOAD_ID_PROVIDER }}"
+          service_account: "glif-github-action-deploy@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+
       # Setup gcloud CLI
       - uses: google-github-actions/setup-gcloud@v0
-        with:
-          version: "290.0.1"
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
 
       # Configure Docker to use the gcloud command-line tool as a credential
       # helper for authentication
